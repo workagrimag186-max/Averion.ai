@@ -30,6 +30,26 @@ Open:
 http://localhost:3000
 ```
 
+## Environment Variables
+
+Copy the example file before running the app locally:
+
+```bash
+cp .env.example .env.local
+```
+
+Current variables:
+
+```text
+NEXT_PUBLIC_API_BASE_URL
+```
+
+This points the frontend to the backend API. During local development, the default is:
+
+```text
+http://127.0.0.1:8000
+```
+
 ## Current Routes
 
 - `/` - product overview placeholder
