@@ -162,19 +162,29 @@ uvicorn app.main:app --reload
 
 Real environment files must not be committed.
 
-Use example files later:
+Use these example files:
 
 ```text
 apps/web/.env.example
 apps/api/.env.example
 ```
 
+Create local env files from those examples:
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+cp apps/api/.env.example apps/api/.env
+```
+
 Planned backend variables:
 
 ```text
 DATABASE_URL=
+UPLOAD_DIR=
 VECTOR_DB_PATH=
 EMBEDDING_MODEL_NAME=
+RETRIEVAL_TOP_K=
+LLM_PROVIDER=
 LLM_PROVIDER_API_KEY=
 ```
 

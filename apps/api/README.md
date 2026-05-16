@@ -1,6 +1,6 @@
 # API App
 
-This folder will contain the FastAPI backend and AI service for Averion.ai.
+This folder contains the FastAPI backend and AI service for Averion.ai.
 
 Planned responsibilities:
 
@@ -25,6 +25,12 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
 Start the development server:
 
 ```bash
@@ -46,6 +52,22 @@ Expected response:
   "version": "0.1.0"
 }
 ```
+
+## Environment Variables
+
+Current planned variables:
+
+```text
+DATABASE_URL
+UPLOAD_DIR
+VECTOR_DB_PATH
+EMBEDDING_MODEL_NAME
+RETRIEVAL_TOP_K
+LLM_PROVIDER
+LLM_PROVIDER_API_KEY
+```
+
+Real `.env` files must stay local and must not be committed to Git.
 
 ## Current API
 
