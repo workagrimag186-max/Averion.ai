@@ -74,7 +74,7 @@ This is called RAG: Retrieval-Augmented Generation. We are not training the LLM 
 
 - GitHub Issues for task tracking
 - Pull requests for every change
-- GitHub Actions later for CI
+- GitHub Actions for CI
 - Gradio later for AI pipeline testing
 
 ## Planning Docs
@@ -274,6 +274,30 @@ What changed:
 
 Tested:
 - Reviewed README locally
+```
+
+## Continuous Integration
+
+GitHub Actions runs CI on pull requests and pushes to `main`.
+
+Current checks:
+
+```text
+Web:
+- npm ci
+- npm run typecheck
+- npm run lint
+- npm run build
+
+API:
+- pip install -r requirements-dev.txt
+- python -m pytest
+```
+
+The workflow file lives at:
+
+```text
+.github/workflows/ci.yml
 ```
 
 ## Current Status
