@@ -82,6 +82,7 @@ This is called RAG: Retrieval-Augmented Generation. We are not training the LLM 
 - [Project Plan](docs/PROJECT_PLAN.md)
 - [GitHub Issue Plan](docs/GITHUB_ISSUES.md)
 - [Repository Structure](docs/REPO_STRUCTURE.md)
+- [Database Schema](docs/DATABASE_SCHEMA.md)
 
 ## Repository Structure
 

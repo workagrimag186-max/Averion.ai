@@ -31,6 +31,8 @@ Averion.ai/
     PROJECT_PLAN.md
     GITHUB_ISSUES.md
     REPO_STRUCTURE.md
+    DATABASE_SCHEMA.md
+    schema.sql
   scripts/
     seed_demo_data.py
     export_feedback.py

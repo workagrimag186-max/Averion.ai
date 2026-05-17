@@ -167,6 +167,8 @@ Improve later:
 
 ## Database Tables
 
+See the detailed schema contract in [Database Schema](DATABASE_SCHEMA.md).
+
 ### organizations
 
 - id
