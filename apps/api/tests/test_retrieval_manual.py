@@ -1,3 +1,4 @@
+from app.ai.embeddings import generate_embeddings
 from app.ai.vector_store import store_embeddings
 from app.ai.retrieval import retrieve_chunks
 
@@ -5,23 +6,24 @@ from app.ai.retrieval import retrieve_chunks
 def test_retrieval():
     """Test retrieval service with sample chunks."""
     
-    # Prepare sample chunks with embeddings
+    # Prepare sample chunks without embeddings
     chunks = [
         {
             "document_id": "doc1",
             "chunk_index": 0,
             "page_number": 1,
-            "text": "FastAPI is a web framework",
-            "embedding": [0.1, 0.2, 0.3, 0.4]
+            "text": "FastAPI is a web framework"
         },
         {
             "document_id": "doc1",
             "chunk_index": 1,
             "page_number": 1,
-            "text": "Python is used for AI",
-            "embedding": [0.2, 0.3, 0.4, 0.5]
+            "text": "Python is used for AI"
         }
     ]
+    
+    # Generate real embeddings
+    chunks = generate_embeddings(chunks)
     
     # Store embeddings
     store_embeddings(chunks)
