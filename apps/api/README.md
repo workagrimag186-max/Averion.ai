@@ -73,3 +73,25 @@ Real `.env` files must stay local and must not be committed to Git.
 
 - `GET /` - service welcome response
 - `GET /health` - backend health check
+- `POST /documents/upload` - upload PDF, TXT, or DOCX files
+
+## Upload API
+
+Use multipart form data with a `file` field:
+
+```bash
+curl -X POST http://127.0.0.1:8000/documents/upload \
+  -F "file=@sample.pdf"
+```
+
+Successful response:
+
+```json
+{
+  "document_id": "generated-uuid",
+  "filename": "sample.pdf",
+  "file_type": "pdf",
+  "status": "uploaded",
+  "storage_path": "uploads/generated-uuid/sample.pdf"
+}
+```
