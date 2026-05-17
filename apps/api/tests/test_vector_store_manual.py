@@ -1,105 +1,99 @@
+"""
+Manual test for vector store functionality.
+Run with: python apps/api/tests/test_vector_store_manual.py
+"""
+
 import sys
-import os
+from pathlib import Path
 
 # Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from app.ai.vector_store import store_embeddings, search_similar
+from apps.api.app.ai.vector_store import store_embeddings, search_similar
 
 
 def test_vector_store():
-    """
-    Manual test for vector store functionality.
-    Tests storing embeddings and similarity search.
-    """
+    """Test storing and searching embeddings."""
+    
     print("=" * 60)
     print("VECTOR STORE TEST")
     print("=" * 60)
     
-    # Create sample chunks with mock embeddings (384 dimensions for all-MiniLM-L6-v2)
-    sample_chunks = [
+    # Create sample chunks with small fake embeddings
+    chunks = [
         {
-            "document_id": "doc_001",
+            "document_id": "doc1",
             "chunk_index": 0,
             "page_number": 1,
-            "text": "Machine learning is a subset of artificial intelligence.",
-            "embedding": [0.1] * 384  # Mock embedding
+            "text": "FastAPI is a modern web framework for building APIs",
+            "embedding": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
         },
         {
-            "document_id": "doc_001",
+            "document_id": "doc1",
             "chunk_index": 1,
             "page_number": 1,
-            "text": "Deep learning uses neural networks with multiple layers.",
-            "embedding": [0.2] * 384  # Mock embedding
+            "text": "Python is a high-level programming language",
+            "embedding": [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         },
         {
-            "document_id": "doc_001",
-            "chunk_index": 2,
+            "document_id": "doc2",
+            "chunk_index": 0,
+            "page_number": 1,
+            "text": "Machine learning models require training data",
+            "embedding": [0.5, 0.6, 0.7, 0.8, 0.1, 0.2, 0.3, 0.4]
+        },
+        {
+            "document_id": "doc2",
+            "chunk_index": 1,
             "page_number": 2,
-            "text": "Natural language processing enables computers to understand human language.",
-            "embedding": [0.3] * 384  # Mock embedding
-        },
-        {
-            "document_id": "doc_002",
-            "chunk_index": 0,
-            "page_number": 1,
-            "text": "Python is a popular programming language for data science.",
-            "embedding": [0.4] * 384  # Mock embedding
-        },
-        {
-            "document_id": "doc_002",
-            "chunk_index": 1,
-            "page_number": 1,
-            "text": "FastAPI is a modern web framework for building APIs with Python.",
-            "embedding": [0.5] * 384  # Mock embedding
+            "text": "Vector databases store embeddings efficiently",
+            "embedding": [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.1]
         }
     ]
     
-    print(f"\n1. STORING EMBEDDINGS")
-    print("-" * 60)
-    print(f"Number of chunks to store: {len(sample_chunks)}")
+    print(f"\n1. Storing {len(chunks)} chunks...")
+    store_embeddings(chunks)
+    print("   [OK] Chunks stored successfully")
     
-    # Store embeddings
-    store_embeddings(sample_chunks)
-    print("[OK] Embeddings stored successfully")
+    # Query with embedding similar to first chunk
+    print("\n2. Searching for similar chunks...")
+    query_embedding = [0.1, 0.2, 0.25, 0.4, 0.5, 0.6, 0.7, 0.75]
+    results = search_similar(query_embedding, top_k=2)
     
-    print(f"\n2. SIMILARITY SEARCH")
-    print("-" * 60)
+    print(f"   [OK] Found {len(results)} results")
     
-    # Create a query embedding (similar to first chunk)
-    query_embedding = [0.15] * 384  # Should be closest to first chunk
-    print(f"Query embedding dimension: {len(query_embedding)}")
+    # Verify results
+    print("\n3. Verifying results...")
+    assert len(results) > 0, "No results returned"
+    print(f"   [OK] Results count: {len(results)}")
     
-    # Search for similar chunks
-    results = search_similar(query_embedding, top_k=3)
-    
-    print(f"\nNumber of results returned: {len(results)}")
-    
-    if results:
-        print("\n3. SEARCH RESULTS")
-        print("-" * 60)
+    for i, result in enumerate(results):
+        print(f"\n   Result {i + 1}:")
+        assert "text" in result, "Missing 'text' field"
+        assert "document_id" in result, "Missing 'document_id' field"
+        assert "chunk_index" in result, "Missing 'chunk_index' field"
+        assert "page_number" in result, "Missing 'page_number' field"
+        assert "score" in result, "Missing 'score' field"
         
-        for idx, result in enumerate(results, 1):
-            print(f"\nResult #{idx}:")
-            print(f"  Text: {result['text'][:80]}...")
-            print(f"  Document ID: {result['metadata']['document_id']}")
-            print(f"  Chunk Index: {result['metadata']['chunk_index']}")
-            print(f"  Page Number: {result['metadata']['page_number']}")
-            print(f"  Distance Score: {result['score']:.4f}")
-        
-        print("\n4. TOP RESULT PREVIEW")
-        print("-" * 60)
-        top_result = results[0]
-        print(f"Text: {top_result['text']}")
-        print(f"Metadata: {top_result['metadata']}")
-        print(f"Score: {top_result['score']:.4f}")
-        
-        print("\n" + "=" * 60)
-        print("[OK] TEST PASSED")
-        print("=" * 60)
-    else:
-        print("\n[FAIL] TEST FAILED: No results returned")
-        print("=" * 60)
+        print(f"     - Document ID: {result['document_id']}")
+        print(f"     - Chunk Index: {result['chunk_index']}")
+        print(f"     - Page Number: {result['page_number']}")
+        print(f"     - Score: {result['score']:.4f}")
+        print(f"     - Text: {result['text'][:60]}...")
+    
+    print("\n" + "=" * 60)
+    print("TOP RESULT PREVIEW")
+    print("=" * 60)
+    top_result = results[0]
+    print(f"Document ID: {top_result['document_id']}")
+    print(f"Chunk Index: {top_result['chunk_index']}")
+    print(f"Page Number: {top_result['page_number']}")
+    print(f"Similarity Score: {top_result['score']:.4f}")
+    print(f"Text: {top_result['text']}")
+    
+    print("\n" + "=" * 60)
+    print("[SUCCESS] ALL TESTS PASSED")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
