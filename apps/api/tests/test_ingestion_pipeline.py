@@ -5,15 +5,30 @@ Tests the full pipeline: extraction → cleaning → chunking
 """
 
 import os
+import sys
 from pathlib import Path
+import pytest
+
+# Add parent directory to path for standalone execution
+if __name__ == "__main__":
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from app.ai.ingestion_pipeline import run_ingestion_pipeline
 from app.ai.cleaning import clean_text
 from app.ai.chunking import chunk_text
 
+# Base directory points to apps/api/
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def get_test_file_path(filename):
+    """Get the full path to a test file"""
+    return str(BASE_DIR / filename)
+
 
 def test_full_pipeline_txt():
     """Test full pipeline with TXT file"""
-    file_path = "sample.txt"
+    file_path = get_test_file_path("sample.txt")
     
     assert Path(file_path).exists(), f"File not found: {file_path}"
     
@@ -40,7 +55,7 @@ def test_full_pipeline_txt():
 
 def test_full_pipeline_pdf():
     """Test full pipeline with PDF file"""
-    file_path = "sample.pdf"
+    file_path = get_test_file_path("sample.pdf")
     
     assert Path(file_path).exists(), f"File not found: {file_path}"
     
@@ -67,7 +82,7 @@ def test_full_pipeline_pdf():
 
 def test_full_pipeline_docx():
     """Test full pipeline with DOCX file"""
-    file_path = "sample.docx"
+    file_path = get_test_file_path("sample.docx")
     
     assert Path(file_path).exists(), f"File not found: {file_path}"
     
@@ -114,7 +129,7 @@ def test_empty_input():
 
 def test_metadata_preservation():
     """Test that metadata is correctly preserved through pipeline"""
-    file_path = "sample.txt"
+    file_path = get_test_file_path("sample.txt")
     
     assert Path(file_path).exists(), f"File not found: {file_path}"
     
@@ -146,7 +161,7 @@ def test_metadata_preservation():
 
 def test_no_empty_chunks():
     """Test that no empty chunks are produced"""
-    file_path = "sample.txt"
+    file_path = get_test_file_path("sample.txt")
     
     assert Path(file_path).exists(), f"File not found: {file_path}"
     
@@ -165,6 +180,65 @@ def test_no_empty_chunks():
         assert chunk.get("text") and chunk["text"].strip(), f"Chunk {i} has empty text"
 
 
+def test_unsupported_file_type():
+    """Test pipeline with unsupported file type"""
+    file_path = get_test_file_path("sample.txt")
+    
+    assert Path(file_path).exists(), f"File not found: {file_path}"
+    
+    # Test with unsupported file type
+    chunks = run_ingestion_pipeline(
+        file_path=file_path,
+        file_type="xyz",  # Unsupported type
+        document_id="test-doc",
+        page_number=1
+    )
+    
+    assert chunks == [], "Unsupported file type should return empty list"
+
+
+def test_chunk_index_sequence():
+    """Test that chunk indices are sequential starting from 0"""
+    file_path = get_test_file_path("sample.txt")
+    
+    assert Path(file_path).exists(), f"File not found: {file_path}"
+    
+    chunks = run_ingestion_pipeline(
+        file_path=file_path,
+        file_type="txt",
+        document_id="test-doc",
+        page_number=1
+    )
+    
+    assert chunks, "No chunks returned"
+    assert len(chunks) > 0, "Expected at least one chunk"
+    
+    # Verify indices are sequential
+    for i, chunk in enumerate(chunks):
+        assert chunk["chunk_index"] == i, f"Expected chunk_index {i}, got {chunk['chunk_index']}"
+
+
+def test_page_number_optional():
+    """Test that page_number can be None"""
+    file_path = get_test_file_path("sample.txt")
+    
+    assert Path(file_path).exists(), f"File not found: {file_path}"
+    
+    chunks = run_ingestion_pipeline(
+        file_path=file_path,
+        file_type="txt",
+        document_id="test-doc",
+        page_number=None
+    )
+    
+    assert chunks, "No chunks returned"
+    assert len(chunks) > 0, "Expected at least one chunk"
+    
+    # Verify page_number is None in all chunks
+    for i, chunk in enumerate(chunks):
+        assert chunk["page_number"] is None, f"Chunk {i} should have None page_number"
+
+
 def run_all_tests():
     """Run all tests and report results"""
     print("=" * 60)
@@ -179,6 +253,9 @@ def run_all_tests():
         ("Empty Input Handling", test_empty_input),
         ("Metadata Preservation", test_metadata_preservation),
         ("No Empty Chunks", test_no_empty_chunks),
+        ("Unsupported File Type", test_unsupported_file_type),
+        ("Chunk Index Sequence", test_chunk_index_sequence),
+        ("Page Number Optional", test_page_number_optional),
     ]
     
     results = []
@@ -187,11 +264,12 @@ def run_all_tests():
         try:
             test_func()
             results.append((test_name, True))
+            print(f"PASS: {test_name}")
         except AssertionError as e:
-            print(f"❌ {test_name}: ASSERTION FAILED - {e}")
+            print(f"FAIL: {test_name} - ASSERTION FAILED - {e}")
             results.append((test_name, False))
         except Exception as e:
-            print(f"❌ {test_name}: EXCEPTION - {e}")
+            print(f"FAIL: {test_name} - EXCEPTION - {e}")
             results.append((test_name, False))
         print()
     
@@ -203,7 +281,7 @@ def run_all_tests():
     total = len(results)
     
     for test_name, success in results:
-        status = "✅ PASS" if success else "❌ FAIL"
+        status = "PASS" if success else "FAIL"
         print(f"{status}: {test_name}")
     
     print()
