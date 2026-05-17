@@ -14,6 +14,9 @@ def store_embeddings(chunks: list[dict]) -> None:
         chunks: List of chunk dictionaries with document_id, chunk_index,
                 page_number, text, and embedding fields
     """
+    # Clear collection first (critical for tests)
+    collection.delete(where={})
+    
     # Batch insert - collect all data first
     ids = []
     embeddings = []
