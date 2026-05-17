@@ -14,6 +14,9 @@ def store_embeddings(chunks: list[dict]) -> None:
         chunks: List of chunk dictionaries with document_id, chunk_index,
                 page_number, text, and embedding fields
     """
+    # Clear collection before insert
+    collection.delete(where={})
+    
     # Batch insert - collect all data first
     ids = []
     embeddings = []
@@ -44,7 +47,7 @@ def store_embeddings(chunks: list[dict]) -> None:
     
     # Batch insert all chunks at once
     if ids:
-        collection.add(
+        collection.upsert(
             ids=ids,
             embeddings=embeddings,
             documents=documents,
@@ -71,7 +74,8 @@ def search_similar(query_embedding: list[float], top_k: int = 3) -> list[dict]:
         # Query ChromaDB
         results = collection.query(
             query_embeddings=[query_embedding],
-            n_results=top_k
+            n_results=top_k,
+            include=["documents", "metadatas", "distances"]
         )
         
         # Safety checks
