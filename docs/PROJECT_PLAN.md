@@ -239,13 +239,23 @@ See the detailed schema contract in [Database Schema](DATABASE_SCHEMA.md).
 
 Uploads a document.
 
+Content type: `multipart/form-data`
+
+Form field:
+
+```text
+file
+```
+
 Response:
 
 ```json
 {
   "document_id": "doc_123",
   "filename": "handbook.pdf",
-  "status": "processing"
+  "file_type": "pdf",
+  "status": "uploaded",
+  "storage_path": "uploads/doc_123/handbook.pdf"
 }
 ```
 
