@@ -3,7 +3,7 @@ import chromadb
 # Initialize ChromaDB with persistent storage
 client = chromadb.PersistentClient(path="./chroma_db")
 
-collection = client.get_or_create_collection(name="documents")
+collection = client.get_or_create_collection("documents")
 
 
 def store_embeddings(chunks: list[dict]) -> None:
@@ -14,6 +14,12 @@ def store_embeddings(chunks: list[dict]) -> None:
         chunks: List of chunk dictionaries with document_id, chunk_index,
                 page_number, text, and embedding fields
     """
+    # Batch insert - collect all data first
+    ids = []
+    embeddings = []
+    documents = []
+    metadatas = []
+    
     for chunk in chunks:
         # Skip chunks without embeddings
         if "embedding" not in chunk:
@@ -23,20 +29,27 @@ def store_embeddings(chunks: list[dict]) -> None:
             # Create unique ID for the chunk
             chunk_id = f"{chunk['document_id']}_{chunk['chunk_index']}"
             
-            # Add to collection
-            collection.add(
-                ids=[chunk_id],
-                embeddings=[chunk["embedding"]],
-                documents=[chunk["text"]],
-                metadatas=[{
-                    "document_id": chunk["document_id"],
-                    "chunk_index": chunk["chunk_index"],
-                    "page_number": chunk["page_number"]
-                }]
-            )
+            # Append to batch lists
+            ids.append(chunk_id)
+            embeddings.append(chunk["embedding"])
+            documents.append(chunk["text"])
+            metadatas.append({
+                "document_id": chunk["document_id"],
+                "chunk_index": chunk["chunk_index"],
+                "page_number": chunk["page_number"]
+            })
         except Exception as e:
             # Skip failed chunks silently
             continue
+    
+    # Batch insert all chunks at once
+    if ids:
+        collection.add(
+            ids=ids,
+            embeddings=embeddings,
+            documents=documents,
+            metadatas=metadatas
+        )
 
 
 def search_similar(query_embedding: list[float], top_k: int = 3) -> list[dict]:
