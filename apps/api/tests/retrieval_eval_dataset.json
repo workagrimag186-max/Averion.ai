@@ -1,0 +1,62 @@
+[
+  {
+    "question": "What is FastAPI?",
+    "expected_document": "doc1",
+    "expected_keywords": ["FastAPI", "web framework", "Python"]
+  },
+  {
+    "question": "What is FastAPI used for?",
+    "expected_document": "doc1",
+    "expected_keywords": ["FastAPI", "API", "web", "framework"]
+  },
+  {
+    "question": "How does machine learning work?",
+    "expected_document": "doc2",
+    "expected_keywords": ["machine learning", "data", "model", "training"]
+  },
+  {
+    "question": "What are embeddings in AI?",
+    "expected_document": "doc3",
+    "expected_keywords": ["embeddings", "vector", "representation", "semantic"]
+  },
+  {
+    "question": "Why are vector databases important?",
+    "expected_document": "doc4",
+    "expected_keywords": ["vector database", "similarity", "search", "embeddings"]
+  },
+  {
+    "question": "What is Python commonly used for?",
+    "expected_document": "doc5",
+    "expected_keywords": ["Python", "programming", "development", "applications"]
+  },
+  {
+    "question": "How do you build APIs with FastAPI?",
+    "expected_document": "doc1",
+    "expected_keywords": ["FastAPI", "API", "endpoints", "routes"]
+  },
+  {
+    "question": "What is natural language processing?",
+    "expected_document": "doc6",
+    "expected_keywords": ["NLP", "natural language", "text", "processing"]
+  },
+  {
+    "question": "How do embeddings capture semantic meaning?",
+    "expected_document": "doc3",
+    "expected_keywords": ["embeddings", "semantic", "meaning", "vector"]
+  },
+  {
+    "question": "What are the benefits of using vector databases for AI?",
+    "expected_document": "doc4",
+    "expected_keywords": ["vector database", "AI", "similarity search", "performance"]
+  },
+  {
+    "question": "How does Python support machine learning?",
+    "expected_document": "doc2",
+    "expected_keywords": ["Python", "machine learning", "libraries", "frameworks"]
+  },
+  {
+    "question": "What is semantic search?",
+    "expected_document": "doc7",
+    "expected_keywords": ["semantic search", "meaning", "context", "embeddings"]
+  }
+]
