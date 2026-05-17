@@ -53,5 +53,19 @@ http://127.0.0.1:8000
 ## Current Routes
 
 - `/` - product overview placeholder
-- `/documents` - documents area placeholder
+- `/documents` - document upload workspace
 - `/chat` - chat area placeholder
+
+## Upload Flow
+
+The documents page calls the backend upload endpoint:
+
+```text
+POST /documents/upload
+```
+
+Set the backend URL in `.env.local`:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+```
