@@ -1,113 +1,113 @@
 import chromadb
-from chromadb.config import Settings
+
+# Initialize ChromaDB with persistent storage
+client = chromadb.PersistentClient(path="./chroma_db")
+
+collection = client.get_or_create_collection("documents")
 
 
-# Initialize ChromaDB client with persistent storage
-client = chromadb.Client(
-    Settings(
-        persist_directory="./chroma_db",
-        anonymized_telemetry=False
-    )
-)
-
-# Get or create collection for documents
-collection = client.get_or_create_collection(name="documents")
-
-
-def store_embeddings(chunks: list[dict]):
+def store_embeddings(chunks: list[dict]) -> None:
     """
-    Store document chunks with embeddings in ChromaDB.
+    Store embeddings in ChromaDB.
     
     Args:
-        chunks: List of chunk dictionaries containing:
-            - document_id: str
-            - chunk_index: int
-            - page_number: int
-            - text: str
-            - embedding: list[float]
+        chunks: List of chunk dictionaries with document_id, chunk_index,
+                page_number, text, and embedding fields
     """
-    if not chunks:
-        return
-    
+    # Batch insert - collect all data first
     ids = []
     embeddings = []
-    metadatas = []
     documents = []
+    metadatas = []
     
     for chunk in chunks:
         # Skip chunks without embeddings
-        if "embedding" not in chunk or not chunk["embedding"]:
+        if "embedding" not in chunk:
             continue
         
-        # Create unique ID
-        chunk_id = f"{chunk['document_id']}_{chunk['chunk_index']}"
-        ids.append(chunk_id)
-        
-        # Extract embedding
-        embeddings.append(chunk["embedding"])
-        
-        # Create metadata
-        metadata = {
-            "document_id": chunk["document_id"],
-            "chunk_index": chunk["chunk_index"],
-            "page_number": chunk["page_number"]
-        }
-        metadatas.append(metadata)
-        
-        # Extract text
-        documents.append(chunk["text"])
+        try:
+            # Create unique ID for the chunk
+            chunk_id = f"{chunk['document_id']}_{chunk['chunk_index']}"
+            
+            # Append to batch lists
+            ids.append(chunk_id)
+            embeddings.append(chunk["embedding"])
+            documents.append(chunk["text"])
+            metadatas.append({
+                "document_id": chunk["document_id"],
+                "chunk_index": chunk["chunk_index"],
+                "page_number": chunk["page_number"]
+            })
+        except Exception as e:
+            # Skip failed chunks silently
+            continue
     
-    # Add to collection if we have valid chunks
+    # Batch insert all chunks at once
     if ids:
-        collection.add(
+        collection.upsert(
             ids=ids,
             embeddings=embeddings,
-            metadatas=metadatas,
-            documents=documents
+            documents=documents,
+            metadatas=metadatas
         )
 
 
-def search_similar(query_embedding: list[float], top_k: int = 3):
+def search_similar(query_embedding: list[float], top_k: int = 3) -> list[dict]:
     """
     Search for similar chunks using query embedding.
     
     Args:
-        query_embedding: Query embedding vector
-        top_k: Number of top results to return
+        query_embedding: Query vector
+        top_k: Number of results to return
         
     Returns:
-        List of dictionaries containing:
-            - text: str
-            - metadata: dict
-            - score: float (distance)
+        List of similar chunks with text, metadata, and scores
     """
     try:
         # Check if collection is empty
         if collection.count() == 0:
             return []
         
-        # Query collection
+        # Query ChromaDB
         results = collection.query(
             query_embeddings=[query_embedding],
-            n_results=top_k
+            n_results=top_k,
+            include=["documents", "metadatas", "distances"]
         )
         
-        # Format results
-        formatted_results = []
+        # Safety checks
+        if not results:
+            return []
         
-        if results and results["documents"] and results["documents"][0]:
-            for i in range(len(results["documents"][0])):
-                result = {
-                    "text": results["documents"][0][i],
-                    "metadata": results["metadatas"][0][i],
-                    "score": results["distances"][0][i]
-                }
-                formatted_results.append(result)
+        documents_list = results.get("documents", [[]])
+        metadatas_list = results.get("metadatas", [[]])
+        distances_list = results.get("distances", [[]])
         
-        return formatted_results
+        if not documents_list or not metadatas_list or not distances_list:
+            return []
+        
+        if not documents_list[0]:
+            return []
+        
+        documents = documents_list[0]
+        metadatas = metadatas_list[0]
+        distances = distances_list[0]
+        
+        # Build output list
+        output = []
+        for doc, meta, dist in zip(documents, metadatas, distances):
+            output.append({
+                "text": doc,
+                "document_id": meta.get("document_id"),
+                "chunk_index": meta.get("chunk_index"),
+                "page_number": meta.get("page_number"),
+                "score": dist
+            })
+        
+        return output
         
     except Exception as e:
-        print(f"Error during similarity search: {e}")
+        # Return empty list on error
         return []
 
 # Made with Bob
