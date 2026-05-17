@@ -9,12 +9,33 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from apps.api.app.ai.embeddings import generate_embeddings
-from apps.api.app.ai.vector_store import store_embeddings, search_similar
+from app.ai.embeddings import generate_embeddings
+from app.ai.vector_store import store_embeddings, search_similar
 
 
-def test_vector_store():
+class FakeEmbedding:
+    def __init__(self, values: list[float]):
+        self.values = values
+
+    def tolist(self) -> list[float]:
+        return self.values
+
+
+class FakeEmbeddingModel:
+    def encode(self, text: str) -> FakeEmbedding:
+        lower_text = text.lower()
+        if "fastapi" in lower_text:
+            return FakeEmbedding([1.0, 0.0, 0.0])
+        if "python" in lower_text:
+            return FakeEmbedding([0.0, 1.0, 0.0])
+        if "machine learning" in lower_text:
+            return FakeEmbedding([0.0, 0.0, 1.0])
+        return FakeEmbedding([0.5, 0.5, 0.5])
+
+
+def test_vector_store(monkeypatch):
     """Test storing and searching embeddings."""
+    monkeypatch.setattr("app.ai.embeddings._model", FakeEmbeddingModel())
     
     print("=" * 60)
     print("VECTOR STORE TEST")
@@ -53,7 +74,7 @@ def test_vector_store():
     print("   [OK] Embeddings generated")
     
     print(f"\n2. Storing {len(chunks)} chunks...")
-    store_embeddings(chunks)
+    store_embeddings(chunks, clear_existing=True)
     print("   [OK] Chunks stored successfully")
     
     # Query with embedding from first chunk

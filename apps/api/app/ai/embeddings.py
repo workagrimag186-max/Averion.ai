@@ -3,8 +3,24 @@ from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
 
-# Load model globally
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+_model: SentenceTransformer | None = None
+
+
+def get_embedding_model() -> SentenceTransformer:
+    """
+    Lazily load the embedding model.
+
+    Keeping model loading out of module import makes tests and app startup safer.
+    The first embedding call may still download/load the model.
+    """
+    global _model
+
+    if _model is None:
+        logger.info("Loading embedding model: %s", MODEL_NAME)
+        _model = SentenceTransformer(MODEL_NAME)
+
+    return _model
 
 
 def embed_text(text: str) -> list[float]:
@@ -17,7 +33,7 @@ def embed_text(text: str) -> list[float]:
     Returns:
         List of floats representing the embedding vector
     """
-    embedding = model.encode(text)
+    embedding = get_embedding_model().encode(text)
     return embedding.tolist()
 
 
@@ -35,7 +51,11 @@ def generate_embeddings(chunks: list[dict]) -> list[dict]:
     processed_count = 0
     failed_count = 0
     
-    logger.info(f"Starting embedding generation for {len(chunks)} chunks using {model}")
+    logger.info(
+        "Starting embedding generation for %s chunks using %s",
+        len(chunks),
+        MODEL_NAME
+    )
     
     for chunk in chunks:
         try:
@@ -61,7 +81,7 @@ def generate_embeddings(chunks: list[dict]) -> list[dict]:
     logger.info(
         f"Embedding generation complete. "
         f"Processed: {processed_count}, Failed: {failed_count}, "
-        f"Model: sentence-transformers/all-MiniLM-L6-v2"
+        f"Model: {MODEL_NAME}"
     )
     
     return chunks
