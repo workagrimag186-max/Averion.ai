@@ -93,3 +93,16 @@ def test_upload_document_rejects_unsupported_file_type(tmp_path: Path) -> None:
     assert response.json() == {
         "detail": "Unsupported file type. Upload a PDF, TXT, or DOCX file."
     }
+
+
+def test_upload_document_allows_local_frontend_origin() -> None:
+    response = client.options(
+        "/documents/upload",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST"
+        }
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
