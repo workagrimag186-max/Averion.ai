@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.documents import router as documents_router
 from app.api.health import router as health_router
@@ -10,6 +11,14 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version=settings.app_version,
         description="Backend API and AI service for Averion.ai."
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.allowed_cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"]
     )
 
     app.include_router(health_router)
