@@ -9,6 +9,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
+from apps.api.app.ai.embeddings import generate_embeddings
 from apps.api.app.ai.vector_store import store_embeddings, search_similar
 
 
@@ -19,51 +20,51 @@ def test_vector_store():
     print("VECTOR STORE TEST")
     print("=" * 60)
     
-    # Create sample chunks with small fake embeddings
+    # Create sample chunks without embeddings
     chunks = [
         {
             "document_id": "doc1",
             "chunk_index": 0,
             "page_number": 1,
-            "text": "FastAPI is a modern web framework for building APIs",
-            "embedding": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+            "text": "FastAPI is a modern web framework for building APIs"
         },
         {
             "document_id": "doc1",
             "chunk_index": 1,
             "page_number": 1,
-            "text": "Python is a high-level programming language",
-            "embedding": [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+            "text": "Python is a high-level programming language"
         },
         {
             "document_id": "doc2",
             "chunk_index": 0,
             "page_number": 1,
-            "text": "Machine learning models require training data",
-            "embedding": [0.5, 0.6, 0.7, 0.8, 0.1, 0.2, 0.3, 0.4]
+            "text": "Machine learning models require training data"
         },
         {
             "document_id": "doc2",
             "chunk_index": 1,
             "page_number": 2,
-            "text": "Vector databases store embeddings efficiently",
-            "embedding": [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.1]
+            "text": "Vector databases store embeddings efficiently"
         }
     ]
     
-    print(f"\n1. Storing {len(chunks)} chunks...")
+    print(f"\n1. Generating embeddings for {len(chunks)} chunks...")
+    chunks = generate_embeddings(chunks)
+    print("   [OK] Embeddings generated")
+    
+    print(f"\n2. Storing {len(chunks)} chunks...")
     store_embeddings(chunks)
     print("   [OK] Chunks stored successfully")
     
-    # Query with embedding similar to first chunk
-    print("\n2. Searching for similar chunks...")
-    query_embedding = [0.1, 0.2, 0.25, 0.4, 0.5, 0.6, 0.7, 0.75]
+    # Query with embedding from first chunk
+    print("\n3. Searching for similar chunks...")
+    query_embedding = chunks[0]["embedding"]
     results = search_similar(query_embedding, top_k=2)
     
     print(f"   [OK] Found {len(results)} results")
     
     # Verify results
-    print("\n3. Verifying results...")
+    print("\n4. Verifying results...")
     assert len(results) > 0, "No results returned"
     print(f"   [OK] Results count: {len(results)}")
     
