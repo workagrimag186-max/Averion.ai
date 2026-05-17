@@ -1,4 +1,5 @@
 import chromadb
+from typing import Any
 
 # Initialize ChromaDB with persistent storage
 client = chromadb.PersistentClient(path="./chroma_db")
@@ -6,28 +7,41 @@ client = chromadb.PersistentClient(path="./chroma_db")
 collection = client.get_or_create_collection("documents")
 
 
-def store_embeddings(chunks: list[dict]) -> None:
+def reset_collection() -> None:
+    """
+    Clear and recreate the documents collection.
+
+    Use this only in tests or manual reset scripts. Normal document ingestion
+    should upsert new chunks without deleting existing vectors.
+    """
+    global collection
+
+    try:
+        client.delete_collection("documents")
+    except Exception:
+        pass
+
+    collection = client.get_or_create_collection("documents")
+
+
+def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
     """
     Store embeddings in ChromaDB.
     
     Args:
         chunks: List of chunk dictionaries with document_id, chunk_index,
                 page_number, text, and embedding fields
+        clear_existing: When True, reset the collection before storing.
+            This is intended for tests only.
     """
-    global collection
-    
-    # Clear collection first (critical for tests)
-    try:
-        client.delete_collection("documents")
-    except:
-        pass
-    collection = client.create_collection("documents")
+    if clear_existing:
+        reset_collection()
     
     # Batch insert - collect all data first
     ids = []
     embeddings = []
     documents = []
-    metadatas = []
+    metadatas: list[dict[str, Any]] = []
     
     for chunk in chunks:
         # Skip chunks without embeddings
@@ -47,7 +61,7 @@ def store_embeddings(chunks: list[dict]) -> None:
                 "chunk_index": chunk["chunk_index"],
                 "page_number": chunk["page_number"]
             })
-        except Exception as e:
+        except Exception:
             # Skip failed chunks silently
             continue
     
@@ -115,7 +129,7 @@ def search_similar(query_embedding: list[float], top_k: int = 3) -> list[dict]:
         
         return output
         
-    except Exception as e:
+    except Exception:
         # Return empty list on error
         return []
 

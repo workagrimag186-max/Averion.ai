@@ -1,8 +1,5 @@
-from sentence_transformers import SentenceTransformer
+from app.ai.embeddings import embed_text
 from app.ai.vector_store import search_similar
-
-# Load model globally
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 
 def retrieve_chunks(query: str, top_k: int = 3) -> list[dict]:
@@ -22,10 +19,10 @@ def retrieve_chunks(query: str, top_k: int = 3) -> list[dict]:
             return []
         
         # Generate query embedding
-        query_embedding = model.encode(query)
+        query_embedding = embed_text(query)
         
         # Call vector search
-        results = search_similar(query_embedding.tolist(), top_k)
+        results = search_similar(query_embedding, top_k)
         
         # Format output
         output = []

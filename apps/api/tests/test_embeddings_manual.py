@@ -7,8 +7,23 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from app.ai.embeddings import generate_embeddings
 
 
-def test_embeddings():
+class FakeEmbedding:
+    def __init__(self, values: list[float]):
+        self.values = values
+
+    def tolist(self) -> list[float]:
+        return self.values
+
+
+class FakeEmbeddingModel:
+    def encode(self, text: str) -> FakeEmbedding:
+        base = float(len(text.split()) or 1)
+        return FakeEmbedding([base, base + 1.0, base + 2.0])
+
+
+def test_embeddings(monkeypatch):
     """Test embedding generation for document chunks."""
+    monkeypatch.setattr("app.ai.embeddings._model", FakeEmbeddingModel())
     
     # Sample chunk list
     chunks = [

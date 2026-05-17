@@ -3,8 +3,27 @@ from app.ai.vector_store import store_embeddings
 from app.ai.retrieval import retrieve_chunks
 
 
-def test_retrieval():
+class FakeEmbedding:
+    def __init__(self, values: list[float]):
+        self.values = values
+
+    def tolist(self) -> list[float]:
+        return self.values
+
+
+class FakeEmbeddingModel:
+    def encode(self, text: str) -> FakeEmbedding:
+        lower_text = text.lower()
+        if "fastapi" in lower_text:
+            return FakeEmbedding([1.0, 0.0, 0.0])
+        if "python" in lower_text:
+            return FakeEmbedding([0.0, 1.0, 0.0])
+        return FakeEmbedding([0.0, 0.0, 1.0])
+
+
+def test_retrieval(monkeypatch):
     """Test retrieval service with sample chunks."""
+    monkeypatch.setattr("app.ai.embeddings._model", FakeEmbeddingModel())
     
     # Prepare sample chunks without embeddings
     chunks = [
@@ -26,7 +45,7 @@ def test_retrieval():
     chunks = generate_embeddings(chunks)
     
     # Store embeddings
-    store_embeddings(chunks)
+    store_embeddings(chunks, clear_existing=True)
     
     # Query
     query = "What is FastAPI?"
