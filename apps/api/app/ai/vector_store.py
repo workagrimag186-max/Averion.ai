@@ -61,25 +61,36 @@ def search_similar(query_embedding: list[float], top_k: int = 3) -> list[dict]:
             n_results=top_k
         )
         
-        # Format results
-        formatted_results = []
+        # Safety checks
+        if not results:
+            return []
         
-        # ChromaDB returns results in lists
-        if results and results.get("documents") and len(results["documents"]) > 0:
-            documents = results["documents"][0]
-            metadatas = results["metadatas"][0]
-            distances = results["distances"][0]
-            
-            for i in range(len(documents)):
-                formatted_results.append({
-                    "text": documents[i],
-                    "document_id": metadatas[i]["document_id"],
-                    "chunk_index": metadatas[i]["chunk_index"],
-                    "page_number": metadatas[i]["page_number"],
-                    "score": distances[i]
-                })
+        documents_list = results.get("documents", [[]])
+        metadatas_list = results.get("metadatas", [[]])
+        distances_list = results.get("distances", [[]])
         
-        return formatted_results
+        if not documents_list or not metadatas_list or not distances_list:
+            return []
+        
+        if not documents_list[0]:
+            return []
+        
+        documents = documents_list[0]
+        metadatas = metadatas_list[0]
+        distances = distances_list[0]
+        
+        # Build output list
+        output = []
+        for doc, meta, dist in zip(documents, metadatas, distances):
+            output.append({
+                "text": doc,
+                "document_id": meta.get("document_id"),
+                "chunk_index": meta.get("chunk_index"),
+                "page_number": meta.get("page_number"),
+                "score": dist
+            })
+        
+        return output
         
     except Exception as e:
         # Return empty list on error
