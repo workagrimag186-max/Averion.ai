@@ -16,6 +16,16 @@ class DocumentMetadataCreate:
     status: str
 
 
+@dataclass(frozen=True)
+class DocumentChunkCreate:
+    document_id: str
+    chunk_index: int
+    page_number: int | None
+    text: str
+    token_count: int | None = None
+    embedding_id: str | None = None
+
+
 class DatabaseNotConfiguredError(RuntimeError):
     pass
 
@@ -59,4 +69,64 @@ def create_document_metadata(metadata: DocumentMetadataCreate) -> None:
                     metadata.storage_path,
                     metadata.status
                 )
+            )
+
+
+def create_document_chunks(chunks: list[DocumentChunkCreate]) -> int:
+    if not chunks:
+        return 0
+
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                """
+                insert into document_chunks (
+                    document_id,
+                    chunk_index,
+                    page_number,
+                    text,
+                    token_count,
+                    embedding_id
+                )
+                values (%s::uuid, %s, %s, %s, %s, %s)
+                on conflict (document_id, chunk_index) do update set
+                    page_number = excluded.page_number,
+                    text = excluded.text,
+                    token_count = excluded.token_count,
+                    embedding_id = excluded.embedding_id
+                """,
+                [
+                    (
+                        chunk.document_id,
+                        chunk.chunk_index,
+                        chunk.page_number,
+                        chunk.text,
+                        chunk.token_count,
+                        chunk.embedding_id
+                    )
+                    for chunk in chunks
+                ]
+            )
+
+    return len(chunks)
+
+
+def update_document_status(document_id: str, status: str, error_message: str | None = None) -> None:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update documents
+                set status = %s,
+                    error_message = %s,
+                    updated_at = now()
+                where id = %s::uuid
+                """,
+                (status, error_message, document_id)
             )

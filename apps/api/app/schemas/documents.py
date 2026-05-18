@@ -8,3 +8,4 @@ class DocumentUploadResponse(BaseModel):
     status: str
     storage_path: str
     metadata_stored: bool = False
+    chunks_stored: int = 0

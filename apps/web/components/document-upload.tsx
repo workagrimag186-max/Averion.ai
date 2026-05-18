@@ -177,6 +177,10 @@ export function DocumentUpload() {
                 <dt className="font-medium">Database</dt>
                 <dd>{uploadResult.metadata_stored ? "Stored" : "Not connected"}</dd>
               </div>
+              <div>
+                <dt className="font-medium">Chunks</dt>
+                <dd>{uploadResult.chunks_stored}</dd>
+              </div>
             </dl>
           </div>
         ) : null}
