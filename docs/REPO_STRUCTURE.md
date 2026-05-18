@@ -32,7 +32,9 @@ Averion.ai/
     GITHUB_ISSUES.md
     REPO_STRUCTURE.md
     DATABASE_SCHEMA.md
+    SUPABASE_SETUP.md
     schema.sql
+    supabase_verify.sql
   scripts/
     seed_demo_data.py
     export_feedback.py
