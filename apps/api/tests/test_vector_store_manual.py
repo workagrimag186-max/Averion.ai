@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from app.ai.embeddings import generate_embeddings
-from app.ai.vector_store import store_embeddings, search_similar
+from app.ai.vector_store import build_chunk_id, store_embeddings, search_similar
 
 
 class FakeEmbedding:
@@ -94,11 +94,17 @@ def test_vector_store(monkeypatch):
         assert "text" in result, "Missing 'text' field"
         assert "document_id" in result, "Missing 'document_id' field"
         assert "chunk_index" in result, "Missing 'chunk_index' field"
+        assert "chunk_id" in result, "Missing 'chunk_id' field"
         assert "page_number" in result, "Missing 'page_number' field"
         assert "score" in result, "Missing 'score' field"
+        assert result["chunk_id"] == build_chunk_id(
+            result["document_id"],
+            result["chunk_index"]
+        )
         
         print(f"     - Document ID: {result['document_id']}")
         print(f"     - Chunk Index: {result['chunk_index']}")
+        print(f"     - Chunk ID: {result['chunk_id']}")
         print(f"     - Page Number: {result['page_number']}")
         print(f"     - Score: {result['score']:.4f}")
         print(f"     - Text: {result['text'][:60]}...")
@@ -109,6 +115,7 @@ def test_vector_store(monkeypatch):
     top_result = results[0]
     print(f"Document ID: {top_result['document_id']}")
     print(f"Chunk Index: {top_result['chunk_index']}")
+    print(f"Chunk ID: {top_result['chunk_id']}")
     print(f"Page Number: {top_result['page_number']}")
     print(f"Similarity Score: {top_result['score']:.4f}")
     print(f"Text: {top_result['text']}")
@@ -116,6 +123,36 @@ def test_vector_store(monkeypatch):
     print("\n" + "=" * 60)
     print("[SUCCESS] ALL TESTS PASSED")
     print("=" * 60)
+
+
+def test_vector_upsert_does_not_delete_existing_vectors(monkeypatch):
+    monkeypatch.setattr("app.ai.embeddings._model", FakeEmbeddingModel())
+
+    first_batch = generate_embeddings([
+        {
+            "document_id": "doc-upsert-a",
+            "chunk_index": 0,
+            "page_number": None,
+            "text": "FastAPI keeps APIs organized"
+        }
+    ])
+    second_batch = generate_embeddings([
+        {
+            "document_id": "doc-upsert-b",
+            "chunk_index": 0,
+            "page_number": None,
+            "text": "Python is useful for AI services"
+        }
+    ])
+
+    store_embeddings(first_batch, clear_existing=True)
+    store_embeddings(second_batch)
+
+    fastapi_results = search_similar(first_batch[0]["embedding"], top_k=5)
+    python_results = search_similar(second_batch[0]["embedding"], top_k=5)
+
+    assert any(result["document_id"] == "doc-upsert-a" for result in fastapi_results)
+    assert any(result["document_id"] == "doc-upsert-b" for result in python_results)
 
 
 if __name__ == "__main__":

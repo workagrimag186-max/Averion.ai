@@ -124,3 +124,7 @@ When `DATABASE_URL` is configured, uploads also create a row in the
 During development, the backend uses
 `DEFAULT_ORGANIZATION_ID` and creates a temporary `Development Organization`
 record automatically.
+
+Vector search results include `document_id`, `chunk_index`, and a stable
+`chunk_id` value formatted as `document_id:chunk_index`. That metadata links
+Chroma vector results back to the matching Supabase `document_chunks` row.
