@@ -53,6 +53,23 @@ Expected response:
 }
 ```
 
+After setting `DATABASE_URL`, check the database connection:
+
+```text
+http://127.0.0.1:8000/health/database
+```
+
+Expected connected response:
+
+```json
+{
+  "status": "ok",
+  "database": "postgres",
+  "connected": true,
+  "error": null
+}
+```
+
 ## Environment Variables
 
 Current planned variables:
@@ -74,6 +91,7 @@ Real `.env` files must stay local and must not be committed to Git.
 
 - `GET /` - service welcome response
 - `GET /health` - backend health check
+- `GET /health/database` - database connection health check
 - `POST /documents/upload` - upload PDF, TXT, or DOCX files
 
 ## Upload API
