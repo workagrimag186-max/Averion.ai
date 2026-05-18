@@ -31,6 +31,7 @@ def retrieve_chunks(query: str, top_k: int = 3) -> list[dict]:
                 "text": result["text"],
                 "document_id": result["document_id"],
                 "chunk_index": result["chunk_index"],
+                "chunk_id": result["chunk_id"],
                 "page_number": result["page_number"],
                 "score": result["score"]
             })

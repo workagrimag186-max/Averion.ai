@@ -7,6 +7,10 @@ client = chromadb.PersistentClient(path="./chroma_db")
 collection = client.get_or_create_collection("documents")
 
 
+def build_chunk_id(document_id: str, chunk_index: int | str) -> str:
+    return f"{document_id}:{chunk_index}"
+
+
 def reset_collection() -> None:
     """
     Clear and recreate the documents collection.
@@ -49,17 +53,20 @@ def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
             continue
         
         try:
-            # Create unique ID for the chunk
-            chunk_id = f"{chunk['document_id']}_{chunk['chunk_index']}"
+            document_id = str(chunk["document_id"])
+            chunk_index = chunk["chunk_index"]
+            chunk_id = str(chunk.get("chunk_id") or build_chunk_id(document_id, chunk_index))
+            page_number = chunk.get("page_number")
             
             # Append to batch lists
             ids.append(chunk_id)
             embeddings.append(chunk["embedding"])
             documents.append(chunk["text"])
             metadatas.append({
-                "document_id": chunk["document_id"],
-                "chunk_index": chunk["chunk_index"],
-                "page_number": chunk["page_number"]
+                "document_id": document_id,
+                "chunk_index": int(chunk_index),
+                "chunk_id": chunk_id,
+                "page_number": page_number if page_number is not None else -1
             })
         except Exception:
             # Skip failed chunks silently
@@ -119,11 +126,14 @@ def search_similar(query_embedding: list[float], top_k: int = 3) -> list[dict]:
         # Build output list
         output = []
         for doc, meta, dist in zip(documents, metadatas, distances):
+            page_number = meta.get("page_number")
+
             output.append({
                 "text": doc,
                 "document_id": meta.get("document_id"),
                 "chunk_index": meta.get("chunk_index"),
-                "page_number": meta.get("page_number"),
+                "chunk_id": meta.get("chunk_id"),
+                "page_number": None if page_number == -1 else page_number,
                 "score": dist
             })
         

@@ -1,4 +1,5 @@
 from app.ai.embeddings import generate_embeddings
+from app.ai.vector_store import build_chunk_id
 from app.ai.vector_store import store_embeddings
 from app.ai.retrieval import retrieve_chunks
 
@@ -58,8 +59,13 @@ def test_retrieval(monkeypatch):
         assert "text" in result, "Missing text field"
         assert "document_id" in result, "Missing document_id field"
         assert "chunk_index" in result, "Missing chunk_index field"
+        assert "chunk_id" in result, "Missing chunk_id field"
         assert "page_number" in result, "Missing page_number field"
         assert "score" in result, "Missing score field"
+        assert result["chunk_id"] == build_chunk_id(
+            result["document_id"],
+            result["chunk_index"]
+        )
     
     # Print results
     print(f"\nQuery: {query}")
@@ -67,6 +73,7 @@ def test_retrieval(monkeypatch):
     print(f"First result preview:")
     print(f"  Text: {results[0]['text']}")
     print(f"  Document ID: {results[0]['document_id']}")
+    print(f"  Chunk ID: {results[0]['chunk_id']}")
     print(f"  Score: {results[0]['score']}")
     
     print("\n✅ Retrieval test passed!")
