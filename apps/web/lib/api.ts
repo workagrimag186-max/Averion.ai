@@ -8,6 +8,7 @@ export type DocumentUploadResponse = {
   file_type: string;
   status: string;
   storage_path: string;
+  metadata_stored: boolean;
 };
 
 
