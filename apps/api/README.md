@@ -93,6 +93,7 @@ Real `.env` files must stay local and must not be committed to Git.
 - `GET /` - service welcome response
 - `GET /health` - backend health check
 - `GET /health/database` - database connection health check
+- `GET /documents` - list uploaded documents from the database
 - `POST /documents/upload` - upload PDF, TXT, or DOCX files
 
 ## Upload API

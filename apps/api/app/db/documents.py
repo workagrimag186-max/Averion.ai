@@ -26,6 +26,19 @@ class DocumentChunkCreate:
     embedding_id: str | None = None
 
 
+@dataclass(frozen=True)
+class DocumentListRecord:
+    document_id: str
+    filename: str
+    file_type: str
+    status: str
+    storage_path: str
+    chunks_count: int
+    error_message: str | None
+    created_at: str
+    updated_at: str
+
+
 class DatabaseNotConfiguredError(RuntimeError):
     pass
 
@@ -130,3 +143,47 @@ def update_document_status(document_id: str, status: str, error_message: str | N
                 """,
                 (status, error_message, document_id)
             )
+
+
+def list_documents(organization_id: str) -> list[DocumentListRecord]:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select
+                    documents.id::text,
+                    documents.filename,
+                    documents.file_type,
+                    documents.status,
+                    documents.storage_path,
+                    count(document_chunks.id)::int as chunks_count,
+                    documents.error_message,
+                    documents.created_at::text,
+                    documents.updated_at::text
+                from documents
+                left join document_chunks
+                    on document_chunks.document_id = documents.id
+                where documents.organization_id = %s::uuid
+                group by documents.id
+                order by documents.created_at desc
+                """,
+                (organization_id,)
+            )
+
+            return [
+                DocumentListRecord(
+                    document_id=row[0],
+                    filename=row[1],
+                    file_type=row[2],
+                    status=row[3],
+                    storage_path=row[4],
+                    chunks_count=row[5],
+                    error_message=row[6],
+                    created_at=row[7],
+                    updated_at=row[8]
+                )
+                for row in cursor.fetchall()
+            ]

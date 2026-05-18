@@ -13,6 +13,39 @@ export type DocumentUploadResponse = {
 };
 
 
+export type DocumentListItem = {
+  document_id: string;
+  filename: string;
+  file_type: string;
+  status: string;
+  storage_path: string;
+  chunks_count: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+
+export async function listDocuments(): Promise<DocumentListItem[]> {
+  const response = await fetch(`${API_BASE_URL}/documents`, {
+    method: "GET",
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not load documents.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<DocumentListItem[]>;
+}
+
+
 export async function uploadDocument(file: File): Promise<DocumentUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
