@@ -26,7 +26,11 @@ function formatBytes(bytes: number) {
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-export function DocumentUpload() {
+type DocumentUploadProps = {
+  onUploadComplete?: () => void;
+};
+
+export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
@@ -72,6 +76,7 @@ export function DocumentUpload() {
       const result = await uploadDocument(selectedFile);
       setUploadResult(result);
       setUploadState("success");
+      onUploadComplete?.();
     } catch (error) {
       setUploadState("error");
       setErrorMessage(error instanceof Error ? error.message : "Document upload failed.");

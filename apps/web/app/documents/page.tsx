@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app-shell";
-import { DocumentUpload } from "@/components/document-upload";
+import { DocumentWorkspace } from "@/components/document-workspace";
 import { PageHeader } from "@/components/page-header";
 
 export default function DocumentsPage() {
@@ -11,7 +11,7 @@ export default function DocumentsPage() {
         description="Upload PDF, TXT, and DOCX files so they can enter the knowledge pipeline."
       />
 
-      <DocumentUpload />
+      <DocumentWorkspace />
     </AppShell>
   );
 }

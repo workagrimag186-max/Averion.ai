@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.core.config import settings
+from app.db.documents import DatabaseNotConfiguredError, DocumentListRecord
 from app.main import app
 
 
@@ -116,6 +117,56 @@ def test_upload_document_allows_local_frontend_origin() -> None:
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+def test_list_documents_returns_database_documents(monkeypatch) -> None:
+    def fake_list_documents(organization_id: str) -> list[DocumentListRecord]:
+        assert organization_id == settings.default_organization_id
+
+        return [
+            DocumentListRecord(
+                document_id="00000000-0000-0000-0000-000000000101",
+                filename="handbook.pdf",
+                file_type="pdf",
+                status="ready",
+                storage_path="uploads/doc/handbook.pdf",
+                chunks_count=4,
+                error_message=None,
+                created_at="2026-05-18 10:00:00+00",
+                updated_at="2026-05-18 10:01:00+00"
+            )
+        ]
+
+    monkeypatch.setattr("app.api.documents.list_documents", fake_list_documents)
+
+    response = client.get("/documents")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "document_id": "00000000-0000-0000-0000-000000000101",
+            "filename": "handbook.pdf",
+            "file_type": "pdf",
+            "status": "ready",
+            "storage_path": "uploads/doc/handbook.pdf",
+            "chunks_count": 4,
+            "error_message": None,
+            "created_at": "2026-05-18 10:00:00+00",
+            "updated_at": "2026-05-18 10:01:00+00"
+        }
+    ]
+
+
+def test_list_documents_returns_503_when_database_is_not_configured(monkeypatch) -> None:
+    def fake_list_documents(organization_id: str) -> list[DocumentListRecord]:
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    monkeypatch.setattr("app.api.documents.list_documents", fake_list_documents)
+
+    response = client.get("/documents")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "DATABASE_URL is not configured."}
 
 
 def test_upload_document_stores_metadata_when_database_is_configured(
