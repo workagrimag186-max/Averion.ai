@@ -86,6 +86,7 @@ Responsibilities:
 - Python 3.11+.
 - Pydantic for request and response validation.
 - PostgreSQL for metadata, users, documents, chat history, and feedback.
+- Supabase Postgres for the hosted MVP database.
 
 ### AI
 
@@ -168,6 +169,7 @@ Improve later:
 ## Database Tables
 
 See the detailed schema contract in [Database Schema](DATABASE_SCHEMA.md).
+See setup instructions in [Supabase Setup](SUPABASE_SETUP.md).
 
 ### organizations
 

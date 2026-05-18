@@ -83,6 +83,7 @@ This is called RAG: Retrieval-Augmented Generation. We are not training the LLM 
 - [GitHub Issue Plan](docs/GITHUB_ISSUES.md)
 - [Repository Structure](docs/REPO_STRUCTURE.md)
 - [Database Schema](docs/DATABASE_SCHEMA.md)
+- [Supabase Setup](docs/SUPABASE_SETUP.md)
 
 ## Repository Structure
 
