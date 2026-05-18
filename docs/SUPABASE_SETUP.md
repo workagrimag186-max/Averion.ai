@@ -127,6 +127,11 @@ Until real auth exists, uploads use `DEFAULT_ORGANIZATION_ID`. The backend creat
 a temporary `Development Organization` row automatically when it stores document
 metadata.
 
+When `DATABASE_URL` is configured, uploaded documents also run through the
+extraction, cleaning, and chunking pipeline. Produced chunks are stored in the
+`document_chunks` table and the document status is updated to `ready`. If no
+readable chunks are produced, the document is marked `failed`.
+
 ## Safety Checklist
 
 Before closing S1:

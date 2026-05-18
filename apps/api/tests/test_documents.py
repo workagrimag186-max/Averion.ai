@@ -123,6 +123,8 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     monkeypatch
 ) -> None:
     stored_metadata = {}
+    stored_chunks = []
+    status_updates = []
 
     def fake_create_document_metadata(metadata) -> None:
         stored_metadata["document_id"] = metadata.document_id
@@ -131,6 +133,23 @@ def test_upload_document_stores_metadata_when_database_is_configured(
         stored_metadata["file_type"] = metadata.file_type
         stored_metadata["status"] = metadata.status
 
+    def fake_run_ingestion_pipeline(file_path, file_type, document_id):
+        return [
+            {
+                "document_id": document_id,
+                "chunk_index": 0,
+                "page_number": None,
+                "text": "Company policy notes"
+            }
+        ]
+
+    def fake_create_document_chunks(chunks) -> int:
+        stored_chunks.extend(chunks)
+        return len(chunks)
+
+    def fake_update_document_status(document_id, status, error_message=None) -> None:
+        status_updates.append((document_id, status, error_message))
+
     monkeypatch.setattr(
         "app.services.document_service.is_database_configured",
         lambda: True
@@ -138,6 +157,18 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     monkeypatch.setattr(
         "app.services.document_service.create_document_metadata",
         fake_create_document_metadata
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.run_ingestion_pipeline",
+        fake_run_ingestion_pipeline
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.create_document_chunks",
+        fake_create_document_chunks
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.update_document_status",
+        fake_update_document_status
     )
 
     original_upload_dir = settings.upload_dir
@@ -155,11 +186,18 @@ def test_upload_document_stores_metadata_when_database_is_configured(
 
     assert response.status_code == 201
     assert body["metadata_stored"] is True
+    assert body["chunks_stored"] == 1
+    assert body["status"] == "ready"
     assert stored_metadata["document_id"] == body["document_id"]
     assert stored_metadata["organization_id"] == settings.default_organization_id
     assert stored_metadata["filename"] == "notes.txt"
     assert stored_metadata["file_type"] == "txt"
     assert stored_metadata["status"] == "uploaded"
+    assert stored_chunks[0].document_id == body["document_id"]
+    assert stored_chunks[0].chunk_index == 0
+    assert stored_chunks[0].text == "Company policy notes"
+    assert stored_chunks[0].token_count == 3
+    assert [update[1] for update in status_updates] == ["processing", "ready"]
 
 
 def test_upload_document_returns_503_when_metadata_storage_fails(
@@ -193,3 +231,67 @@ def test_upload_document_returns_503_when_metadata_storage_fails(
     assert response.json() == {
         "detail": "Document was saved locally, but metadata could not be stored."
     }
+
+
+def test_upload_document_returns_503_when_chunk_storage_fails(
+    tmp_path: Path,
+    monkeypatch
+) -> None:
+    status_updates = []
+
+    def fake_create_document_metadata(metadata) -> None:
+        return None
+
+    def fake_run_ingestion_pipeline(file_path, file_type, document_id):
+        return [
+            {
+                "document_id": document_id,
+                "chunk_index": 0,
+                "page_number": None,
+                "text": "Company policy notes"
+            }
+        ]
+
+    def fake_create_document_chunks(chunks) -> int:
+        raise RuntimeError("chunk insert failed")
+
+    def fake_update_document_status(document_id, status, error_message=None) -> None:
+        status_updates.append((document_id, status, error_message))
+
+    monkeypatch.setattr(
+        "app.services.document_service.is_database_configured",
+        lambda: True
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.create_document_metadata",
+        fake_create_document_metadata
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.run_ingestion_pipeline",
+        fake_run_ingestion_pipeline
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.create_document_chunks",
+        fake_create_document_chunks
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.update_document_status",
+        fake_update_document_status
+    )
+
+    original_upload_dir = settings.upload_dir
+    settings.upload_dir = str(tmp_path)
+
+    try:
+        response = client.post(
+            "/documents/upload",
+            files={"file": ("notes.txt", b"Company policy notes", "text/plain")}
+        )
+    finally:
+        settings.upload_dir = original_upload_dir
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Document metadata was stored, but chunks could not be stored."
+    }
+    assert [update[1] for update in status_updates] == ["processing", "failed"]

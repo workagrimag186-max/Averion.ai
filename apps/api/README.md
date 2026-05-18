@@ -113,11 +113,13 @@ Successful response:
   "file_type": "pdf",
   "status": "uploaded",
   "storage_path": "uploads/generated-uuid/sample.pdf",
-  "metadata_stored": true
+  "metadata_stored": true,
+  "chunks_stored": 3
 }
 ```
 
 When `DATABASE_URL` is configured, uploads also create a row in the
-`documents` table. During development, the backend uses
+`documents` table and stores extracted text chunks in `document_chunks`.
+During development, the backend uses
 `DEFAULT_ORGANIZATION_ID` and creates a temporary `Development Organization`
 record automatically.

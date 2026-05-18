@@ -9,6 +9,7 @@ export type DocumentUploadResponse = {
   status: string;
   storage_path: string;
   metadata_stored: boolean;
+  chunks_stored: number;
 };
 
 

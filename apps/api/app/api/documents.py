@@ -3,6 +3,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from app.core.config import settings
 from app.schemas.documents import DocumentUploadResponse
 from app.services.document_service import (
+    DocumentChunkStorageError,
     DocumentMetadataStorageError,
     UnsupportedDocumentTypeError,
     save_uploaded_document
@@ -29,6 +30,11 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
             detail=str(exc)
         ) from exc
     except DocumentMetadataStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc)
+        ) from exc
+    except DocumentChunkStorageError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc)
