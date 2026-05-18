@@ -32,7 +32,9 @@ Text is cleaned and split into chunks
         ↓
 Chunks are converted into embeddings
         ↓
-Embeddings are stored in a vector database
+Document metadata and chunks are stored in Supabase
+        ↓
+Embeddings are stored in Chroma with metadata linking back to Supabase chunks
         ↓
 User asks a question
         ↓
@@ -59,14 +61,14 @@ This is called RAG: Retrieval-Augmented Generation. We are not training the LLM 
 - FastAPI
 - Python
 - Pydantic
-- PostgreSQL later for metadata
+- Supabase Postgres for metadata, chunks, chat history, and feedback
 
 ### AI/ML
 
 - Hugging Face Transformers
 - Sentence Transformers
 - LangChain
-- Chroma or FAISS
+- Chroma for local vector search
 - PyTorch later for fine-tuning experiments
 - TensorFlow later for classification experiments
 
@@ -235,9 +237,10 @@ Work through GitHub issues in milestone order:
 1. M0 - Project Setup
 2. M1 - Document Ingestion
 3. M2 - Retrieval
-4. M3 - RAG Chat
-5. M4 - Citations and Feedback
-6. M5 - Demo-Ready Product
+4. M2.5 - Supabase Database Integration
+5. M3 - RAG Chat
+6. M4 - Citations and Feedback
+7. M5 - Demo-Ready Product
 
 Use this workflow for every issue:
 

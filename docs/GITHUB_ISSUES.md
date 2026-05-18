@@ -30,9 +30,10 @@ Use these labels first, then create the issues in the order below.
 1. `M0 - Project Setup`
 2. `M1 - Document Ingestion`
 3. `M2 - Retrieval`
-4. `M3 - RAG Chat`
-5. `M4 - Citations and Feedback`
-6. `M5 - Demo-Ready Product`
+4. `M2.5 - Supabase Database Integration`
+5. `M3 - RAG Chat`
+6. `M4 - Citations and Feedback`
+7. `M5 - Demo-Ready Product`
 
 ## Issue Creation Order
 
@@ -306,7 +307,7 @@ Labels: `type:feature`, `area:ai-ml`, `area:backend`, `priority:p0`, `owner:ai-m
 
 Description:
 
-Set up Chroma or FAISS for local vector search.
+Set up Chroma for local vector search.
 
 Acceptance criteria:
 
@@ -351,22 +352,39 @@ Depends on: issue 17.
 
 ## M3 - RAG Chat
 
+### Supabase Course Correction Before M3
+
+Issues S1-S6 were added between the original M2 work and M3 so the MVP has a real Supabase-backed data foundation before chat work starts.
+
+Completed Supabase foundation:
+
+- S1: Supabase project/schema setup and verification docs.
+- S2: Backend `DATABASE_URL` connection health check.
+- S3: Uploads store document metadata in Supabase.
+- S4: Uploads store extracted chunks in `document_chunks`.
+- S5: Documents page lists uploaded documents from Supabase.
+- S6 / issue 46: Vector store metadata links retrieval results to database chunks through `document_id`, `chunk_index`, and `chunk_id`.
+
+This changes the meaning of issues 19-34: do not rebuild metadata/chunk storage. Build on the Supabase tables and Chroma metadata that now exist.
+
 ### 19. Design chat API response format with citations
 
 Labels: `type:task`, `area:backend`, `area:frontend`, `area:ai-ml`, `priority:p0`, `owner:shared`
 
 Description:
 
-Finalize the request and response shape for chat.
+Finalize the request and response shape for chat using the Supabase + Chroma foundation from S1-S6.
 
 Acceptance criteria:
 
 - Request includes conversation id and question.
 - Response includes answer text.
 - Response includes citation array.
+- Citation objects include `document_id`, `chunk_index`, `chunk_id`, filename, page number when available, and snippet.
+- Contract explains how `chunk_id` maps back to Supabase `document_chunks`.
 - Frontend and backend owners both approve the contract.
 
-Depends on: issue 17.
+Depends on: issue 17 and S6 / issue 46.
 
 ### 20. Implement RAG prompt builder
 
@@ -381,6 +399,7 @@ Acceptance criteria:
 - Prompt tells model to answer only from context.
 - Prompt tells model to say when information is missing.
 - Prompt includes citation ids for chunks.
+- Prompt input uses retrieved chunks that include `document_id`, `chunk_index`, and `chunk_id`.
 - Prompt is easy to test without the web UI.
 
 Depends on: issue 19.
@@ -399,6 +418,7 @@ Acceptance criteria:
 - Chat endpoint can produce an answer.
 - Failure states are handled clearly.
 - Provider can be swapped later without rewriting the frontend.
+- LLM provider receives only retrieved context, not raw database credentials or full document tables.
 
 Depends on: issue 20.
 
@@ -413,11 +433,13 @@ Expose the RAG pipeline through `POST /chat`.
 Acceptance criteria:
 
 - Endpoint accepts a user question.
-- Endpoint calls retrieval and LLM generation.
-- Endpoint stores conversation messages.
+- Endpoint calls retrieval, prompt building, and LLM generation.
+- Endpoint stores conversation and message records in Supabase.
 - Endpoint returns answer and citations.
+- Endpoint citations preserve `chunk_id` so source chunks can be resolved later.
+- Endpoint handles no-retrieval and LLM-provider failures cleanly.
 
-Depends on: issues 19, 20, and 21.
+Depends on: issues 19, 20, 21, and S6 / issue 46.
 
 ### 23. Build chat UI
 
@@ -433,6 +455,7 @@ Acceptance criteria:
 - User sees their message and AI answer.
 - UI shows loading state while waiting.
 - UI shows errors cleanly.
+- UI can render citation placeholders returned by the chat API, even before the full source panel is built.
 
 Depends on: issue 22.
 
@@ -449,11 +472,11 @@ Display the sources used for an answer.
 Acceptance criteria:
 
 - Each answer can show its citations.
-- Citation displays filename, page number if available, and snippet.
+- Citation displays filename, page number if available, snippet, and `chunk_id` for debugging.
 - User can expand/collapse source snippets.
 - Missing citation metadata does not break UI.
 
-Depends on: issue 23.
+Depends on: issues 23 and 25.
 
 ### 25. Improve backend citation mapping
 
@@ -461,16 +484,17 @@ Labels: `type:feature`, `area:ai-ml`, `area:backend`, `priority:p1`, `owner:ai-m
 
 Description:
 
-Make sure returned citations point back to the exact chunks used by the answer.
+Resolve citation metadata from retrieval results and Supabase chunk records so returned citations point back to the exact chunks used by the answer.
 
 Acceptance criteria:
 
-- Citations include chunk id.
+- Citations include `chunk_id`.
+- Citations can use `document_id` + `chunk_index` to find the matching Supabase `document_chunks` row.
 - Citations include document id and filename.
 - Citations include page number when available.
 - Citations include source snippet.
 
-Depends on: issue 22.
+Depends on: issue 22 and S6 / issue 46.
 
 ### 26. Build feedback UI
 
@@ -486,6 +510,7 @@ Acceptance criteria:
 - Downvote reveals correction input.
 - Submit state is visible.
 - Success and error states are handled.
+- UI sends feedback against the assistant message id returned by the chat API.
 
 Depends on: issue 23.
 
@@ -503,8 +528,9 @@ Acceptance criteria:
 - Feedback links to the original answer.
 - Invalid message ids return clear errors.
 - Feedback can be queried later for analysis.
+- Feedback is stored in the existing Supabase `feedback` table from S1.
 
-Depends on: issues 7 and 26.
+Depends on: issues 22 and 26.
 
 ### 28. Create feedback review dataset export
 
@@ -519,26 +545,29 @@ Acceptance criteria:
 - Export includes question, answer, citations, rating, and correction.
 - Export format is JSONL or CSV.
 - Script is documented.
+- Export reads from Supabase conversations, messages, and feedback tables.
 
 Depends on: issue 27.
 
 ## M5 - Demo-Ready Product
 
-### 29. Add document list and processing status UI
+### 29. Enhance document list and processing status UI
 
 Labels: `type:feature`, `area:frontend`, `priority:p1`, `owner:web`
 
 Description:
 
-Show uploaded documents and their processing status.
+Improve the Supabase-backed document list created in S5 so it feels demo-ready.
 
 Acceptance criteria:
 
-- Documents page lists uploaded files.
+- Documents page keeps listing uploaded files from Supabase.
 - Status values are visible: uploaded, processing, ready, failed.
 - Failed documents show a clear error.
+- Empty and loading states are polished.
+- Chunk count is visible and readable.
 
-Depends on: issues 8 and 9.
+Depends on: S5.
 
 ### 30. Add organization-ready data scoping
 
@@ -546,16 +575,17 @@ Labels: `type:task`, `area:backend`, `area:database`, `priority:p1`, `owner:shar
 
 Description:
 
-Prepare the app for future multi-tenant SaaS usage.
+Prepare the app for future multi-tenant SaaS usage beyond the temporary development organization added during S3/S4.
 
 Acceptance criteria:
 
 - Documents are scoped by organization id.
 - Conversations are scoped by organization id.
 - Retrieval only searches within the current organization.
-- Temporary development organization is documented.
+- Temporary development organization behavior remains documented.
+- The current hardcoded `DEFAULT_ORGANIZATION_ID` path is clearly isolated for development only.
 
-Depends on: issues 7 and 17.
+Depends on: S3, S5, S6 / issue 46, and issue 22.
 
 ### 31. Add error, empty, and loading states across MVP UI
 
@@ -571,8 +601,9 @@ Acceptance criteria:
 - Chat screen has empty/error/loading states.
 - Citation panel has empty/error/loading states.
 - Feedback controls handle submitted/failed states.
+- Documents list has empty/error/loading states.
 
-Depends on: issues 9, 23, 24, and 26.
+Depends on: issues 23, 24, 26, and 29.
 
 ### 32. Add backend tests for core API endpoints
 
@@ -580,16 +611,18 @@ Labels: `type:test`, `area:backend`, `priority:p1`, `owner:web`
 
 Description:
 
-Test upload, chat, documents list, and feedback endpoints.
+Extend backend endpoint coverage now that upload, Supabase document listing, chat, and feedback exist.
 
 Acceptance criteria:
 
-- Health route test exists.
-- Upload endpoint test exists.
+- Health route test remains green.
+- Upload endpoint tests remain green.
+- Documents list endpoint tests remain green.
 - Feedback endpoint test exists.
 - Chat endpoint has a mocked AI pipeline test.
+- Tests do not require live LLM calls.
 
-Depends on: issues 8, 22, and 27.
+Depends on: S5, issues 22 and 27.
 
 ### 33. Add end-to-end demo script
 
@@ -605,8 +638,9 @@ Acceptance criteria:
 - Demo questions are listed.
 - Expected answer behavior is described.
 - Feedback example is included.
+- Supabase setup and local env requirements are included.
 
-Depends on: issues 23, 24, and 26.
+Depends on: issues 23, 24, 26, and 29.
 
 ### 34. Prepare deployment plan
 
@@ -620,9 +654,10 @@ Acceptance criteria:
 
 - Frontend deployment target is chosen.
 - Backend deployment target is chosen.
-- Database hosting option is chosen.
+- Database hosting option is Supabase unless a later decision changes it.
 - Vector DB persistence plan is documented.
 - Required environment variables are listed.
+- Supabase connection string handling is documented without exposing secrets.
 
 Depends on: milestone 4.
 

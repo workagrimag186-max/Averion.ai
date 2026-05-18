@@ -92,7 +92,7 @@ Responsibilities:
 
 - LangChain for early RAG orchestration.
 - Sentence Transformers for embeddings.
-- Chroma or FAISS for local vector search.
+- Chroma for local vector search.
 - Hugging Face Transformers for models and tokenizers.
 - PyTorch later for fine-tuning embedding or reranker models.
 - TensorFlow later for a small document classifier or intent classifier.
@@ -111,13 +111,14 @@ flowchart TD
     A["User uploads PDF, TXT, or DOCX"] --> B["Frontend upload UI"]
     B --> C["FastAPI upload endpoint"]
     C --> D["Store original file"]
-    C --> E["Create document metadata in PostgreSQL"]
+    C --> E["Create document metadata in Supabase"]
     D --> F["Text extraction"]
     F --> G["Cleaning and normalization"]
     G --> H["Chunking with overlap"]
     H --> I["Embedding generation"]
-    I --> J["Vector DB: Chroma or FAISS"]
-    E --> K["Document and chunk records"]
+    H --> K["Store document chunks in Supabase"]
+    I --> J["Vector DB: Chroma"]
+    J --> X["Vector metadata links to Supabase chunks"]
     J --> L["Retriever"]
     M["User asks question"] --> N["Chat UI"]
     N --> O["FastAPI chat endpoint"]
@@ -257,7 +258,9 @@ Response:
   "filename": "handbook.pdf",
   "file_type": "pdf",
   "status": "uploaded",
-  "storage_path": "uploads/doc_123/handbook.pdf"
+  "storage_path": "uploads/doc_123/handbook.pdf",
+  "metadata_stored": true,
+  "chunks_stored": 3
 }
 ```
 
@@ -288,7 +291,8 @@ Response:
       "document_id": "doc_123",
       "filename": "policy.pdf",
       "page_number": 4,
-      "chunk_id": "chunk_456",
+      "chunk_id": "doc_123:0",
+      "chunk_index": 0,
       "snippet": "Refunds are available within..."
     }
   ]
@@ -347,6 +351,20 @@ Deliverables:
 - Vector DB persistence.
 - Similarity search endpoint.
 - Retrieval evaluation with sample questions.
+- Vector results include `document_id`, `chunk_index`, and `chunk_id`.
+
+### Milestone 2.5: Supabase database integration
+
+Goal: Persist product data in Supabase before building chat.
+
+Deliverables:
+
+- Supabase schema applied and verified.
+- Backend database connection health check.
+- Uploaded document metadata stored in Supabase.
+- Extracted chunks stored in `document_chunks`.
+- Documents page lists Supabase-backed uploads.
+- Chroma vector metadata links back to Supabase chunks.
 
 ### Milestone 3: RAG chat
 
