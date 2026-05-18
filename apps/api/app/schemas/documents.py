@@ -7,3 +7,4 @@ class DocumentUploadResponse(BaseModel):
     file_type: str
     status: str
     storage_path: str
+    metadata_stored: bool = False

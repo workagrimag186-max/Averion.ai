@@ -76,6 +76,7 @@ Current planned variables:
 
 ```text
 DATABASE_URL
+DEFAULT_ORGANIZATION_ID
 UPLOAD_DIR
 CORS_ORIGINS
 VECTOR_DB_PATH
@@ -111,6 +112,12 @@ Successful response:
   "filename": "sample.pdf",
   "file_type": "pdf",
   "status": "uploaded",
-  "storage_path": "uploads/generated-uuid/sample.pdf"
+  "storage_path": "uploads/generated-uuid/sample.pdf",
+  "metadata_stored": true
 }
 ```
+
+When `DATABASE_URL` is configured, uploads also create a row in the
+`documents` table. During development, the backend uses
+`DEFAULT_ORGANIZATION_ID` and creates a temporary `Development Organization`
+record automatically.

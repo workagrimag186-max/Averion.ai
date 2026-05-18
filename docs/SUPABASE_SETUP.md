@@ -118,9 +118,14 @@ Set:
 
 ```env
 DATABASE_URL=your_supabase_postgres_connection_string
+DEFAULT_ORGANIZATION_ID=00000000-0000-0000-0000-000000000001
 ```
 
 Never commit `apps/api/.env`.
+
+Until real auth exists, uploads use `DEFAULT_ORGANIZATION_ID`. The backend creates
+a temporary `Development Organization` row automatically when it stores document
+metadata.
 
 ## Safety Checklist
 
