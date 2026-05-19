@@ -276,15 +276,20 @@ Request:
 
 ```json
 {
-  "conversation_id": "conv_123",
+  "conversation_id": null,
   "question": "What is our refund policy?"
 }
 ```
+
+Use `conversation_id: null` to start a new conversation. Send an existing
+conversation id for follow-up questions.
 
 Response:
 
 ```json
 {
+  "conversation_id": "conv_123",
+  "message_id": "msg_456",
   "answer": "The refund policy allows...",
   "citations": [
     {
@@ -298,6 +303,14 @@ Response:
   ]
 }
 ```
+
+Citation contract:
+
+- `document_id` identifies the source document row.
+- `chunk_index` identifies the chunk order inside that document.
+- `chunk_id` uses `document_id:chunk_index` so Chroma results can map back to the unique Supabase `document_chunks(document_id, chunk_index)` row.
+- `filename`, `page_number`, and `snippet` are display fields for the frontend.
+- `score` can be included by retrieval for debugging or ranking display.
 
 ### POST /feedback
 
