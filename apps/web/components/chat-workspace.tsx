@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+import { CitationSourcePanel } from "@/components/citation-source-panel";
 import { ChatCitation, sendChatMessage } from "@/lib/api";
 
 type ChatMessage = {
@@ -10,25 +11,6 @@ type ChatMessage = {
   content: string;
   citations?: ChatCitation[];
 };
-
-function CitationPreview({ citation }: { citation: ChatCitation }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-slate-950">{citation.filename}</span>
-        <span className="rounded-full bg-white px-2 py-0.5 text-xs text-slate-600 ring-1 ring-inset ring-slate-200">
-          {citation.chunk_id}
-        </span>
-        {citation.page_number ? (
-          <span className="text-xs text-slate-500">Page {citation.page_number}</span>
-        ) : null}
-      </div>
-      <p className="mt-2 text-sm leading-6 text-slate-600">
-        {citation.snippet}
-      </p>
-    </div>
-  );
-}
 
 export function ChatWorkspace() {
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -115,11 +97,9 @@ export function ChatWorkspace() {
                 {message.role === "assistant" && message.citations?.length ? (
                   <div className="mt-4 space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-                      Citations
+                      Sources
                     </p>
-                    {message.citations.map((citation) => (
-                      <CitationPreview citation={citation} key={citation.chunk_id} />
-                    ))}
+                    <CitationSourcePanel citations={message.citations} />
                   </div>
                 ) : null}
               </div>
