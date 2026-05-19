@@ -1,22 +1,29 @@
-"""
-Chat API Endpoint
-
-Handles chat requests by:
-1. Retrieving relevant document chunks
-2. Building RAG prompt
-3. Generating answer using LLM
-"""
-
-import uuid
 from fastapi import APIRouter, HTTPException
 
-from app.ai.retrieval import retrieve_chunks
-from app.ai.prompt_builder import build_rag_prompt
 from app.ai.llm_service import generate_answer
+from app.ai.prompt_builder import build_rag_prompt
+from app.ai.retrieval import retrieve_chunks
 from app.core.config import settings
-from app.schemas.chat import ChatRequest, ChatResponse, ChatCitation
+from app.db.chat import store_chat_exchange
+from app.db.documents import DatabaseNotConfiguredError
+from app.schemas.chat import ChatCitation, ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+def _build_citations(chunks: list[dict]) -> list[ChatCitation]:
+    return [
+        ChatCitation(
+            document_id=chunk.get("document_id", "unknown"),
+            chunk_index=chunk.get("chunk_index", 0),
+            chunk_id=chunk.get("chunk_id", "unknown"),
+            filename=chunk.get("filename") or chunk.get("document_id", "unknown"),
+            page_number=chunk.get("page_number"),
+            snippet=chunk.get("text", "")[:200],
+            score=chunk.get("score")
+        )
+        for chunk in chunks
+    ]
 
 
 @router.post("", response_model=ChatResponse)
@@ -62,26 +69,19 @@ async def chat(request: ChatRequest) -> ChatResponse:
         answer = generate_answer(prompt)
         
         # Step 4: Build citations from retrieved chunks
-        citations = []
-        for chunk in chunks:
-            citation = ChatCitation(
-                document_id=chunk.get("document_id", "unknown"),
-                chunk_index=chunk.get("chunk_index", 0),
-                chunk_id=chunk.get("chunk_id", "unknown"),
-                filename=chunk.get("document_id", "unknown"),  # TODO: Get actual filename from DB
-                page_number=chunk.get("page_number"),
-                snippet=chunk.get("text", "")[:200],  # First 200 chars as snippet
-                score=chunk.get("score")
-            )
-            citations.append(citation)
-        
-        # Generate IDs
-        conversation_id = request.conversation_id or str(uuid.uuid4())
-        message_id = str(uuid.uuid4())
+        citations = _build_citations(chunks)
+
+        stored_messages = store_chat_exchange(
+            organization_id=settings.default_organization_id,
+            conversation_id=request.conversation_id,
+            question=request.question.strip(),
+            answer=answer,
+            citations=[citation.model_dump() for citation in citations]
+        )
         
         return ChatResponse(
-            conversation_id=conversation_id,
-            message_id=message_id,
+            conversation_id=stored_messages.conversation_id,
+            message_id=stored_messages.assistant_message_id,
             answer=answer,
             citations=citations
         )
@@ -89,6 +89,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
     except ValueError as e:
         # Handle LLM provider errors
         raise HTTPException(status_code=500, detail=str(e))
+    except DatabaseNotConfiguredError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         # Log error in production
         print(f"Chat error: {str(e)}")
