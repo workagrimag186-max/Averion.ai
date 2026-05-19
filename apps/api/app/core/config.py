@@ -12,8 +12,11 @@ class Settings(BaseSettings):
     vector_db_path: str = "./vector_store"
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     retrieval_top_k: int = 5
-    llm_provider: str = "placeholder"
+    llm_provider: str = "mock"
     llm_provider_api_key: str = ""
+    llm_model_name: str = "gpt-4o-mini"
+    llm_temperature: float = 0.2
+    llm_max_tokens: int = 1000
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
