@@ -26,6 +26,31 @@ export type DocumentListItem = {
 };
 
 
+export type ChatRequest = {
+  conversation_id: string | null;
+  question: string;
+};
+
+
+export type ChatCitation = {
+  document_id: string;
+  chunk_index: number;
+  chunk_id: string;
+  filename: string;
+  page_number: number | null;
+  snippet: string;
+  score: number | null;
+};
+
+
+export type ChatResponse = {
+  conversation_id: string;
+  message_id: string;
+  answer: string;
+  citations: ChatCitation[];
+};
+
+
 export async function listDocuments(): Promise<DocumentListItem[]> {
   const response = await fetch(`${API_BASE_URL}/documents`, {
     method: "GET",

@@ -95,6 +95,7 @@ Real `.env` files must stay local and must not be committed to Git.
 - `GET /health/database` - database connection health check
 - `GET /documents` - list uploaded documents from the database
 - `POST /documents/upload` - upload PDF, TXT, or DOCX files
+- `POST /chat` - planned RAG chat endpoint contract
 
 ## Upload API
 
@@ -128,3 +129,45 @@ record automatically.
 Vector search results include `document_id`, `chunk_index`, and a stable
 `chunk_id` value formatted as `document_id:chunk_index`. That metadata links
 Chroma vector results back to the matching Supabase `document_chunks` row.
+
+## Chat API Contract
+
+Issue 19 defines the request/response contract for the upcoming `POST /chat`
+endpoint. The endpoint implementation comes later.
+
+Request:
+
+```json
+{
+  "conversation_id": null,
+  "question": "What is our refund policy?"
+}
+```
+
+Use `conversation_id: null` to start a new conversation. Send an existing
+conversation id for follow-up questions.
+
+Response:
+
+```json
+{
+  "conversation_id": "conv_123",
+  "message_id": "msg_456",
+  "answer": "Refund requests are allowed within 30 days.",
+  "citations": [
+    {
+      "document_id": "doc_123",
+      "chunk_index": 0,
+      "chunk_id": "doc_123:0",
+      "filename": "policy.pdf",
+      "page_number": 4,
+      "snippet": "Refunds are available within 30 days.",
+      "score": 0.12
+    }
+  ]
+}
+```
+
+The `chunk_id` is formatted as `document_id:chunk_index`, matching the unique
+Supabase `document_chunks(document_id, chunk_index)` record and the Chroma
+vector metadata from S6.
