@@ -51,6 +51,29 @@ export type ChatResponse = {
 };
 
 
+export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(request)
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Chat request failed. Try again.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<ChatResponse>;
+}
+
+
 export async function listDocuments(): Promise<DocumentListItem[]> {
   const response = await fetch(`${API_BASE_URL}/documents`, {
     method: "GET",
