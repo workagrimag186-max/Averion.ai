@@ -71,7 +71,7 @@ def test_build_citations_with_fake_chunks():
         print(f"  score: {citation['score']}")
         
         # Verify chunk_id format
-        expected_chunk_id = f"{citation['document_id']}_{citation['chunk_index']}"
+        expected_chunk_id = f"{citation['document_id']}:{citation['chunk_index']}"
         assert citation['chunk_id'] == expected_chunk_id, \
             f"chunk_id format incorrect: expected {expected_chunk_id}, got {citation['chunk_id']}"
         
