@@ -2,7 +2,11 @@
 
 import { FormEvent, useState } from "react";
 
-import { FeedbackDraft, FeedbackRating } from "@/lib/api";
+import {
+  FeedbackDraft,
+  FeedbackRating,
+  submitFeedback as submitFeedbackRequest
+} from "@/lib/api";
 
 type SubmitState = "idle" | "submitting" | "submitted" | "error";
 
@@ -29,7 +33,7 @@ export function FeedbackControls({ messageId }: FeedbackControlsProps) {
         correction_text: nextCorrectionText || null
       };
 
-      await Promise.resolve(feedback);
+      await submitFeedbackRequest(feedback);
 
       setSubmitState("submitted");
     } catch {

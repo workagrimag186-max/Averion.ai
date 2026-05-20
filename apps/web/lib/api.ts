@@ -61,6 +61,16 @@ export type FeedbackDraft = {
 };
 
 
+export type FeedbackResponse = {
+  feedback_id: string;
+  message_id: string;
+  user_id: string | null;
+  rating: FeedbackRating;
+  correction_text: string | null;
+  created_at: string;
+};
+
+
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: "POST",
@@ -81,6 +91,29 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
   }
 
   return response.json() as Promise<ChatResponse>;
+}
+
+
+export async function submitFeedback(request: FeedbackDraft): Promise<FeedbackResponse> {
+  const response = await fetch(`${API_BASE_URL}/feedback`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(request)
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Feedback could not be submitted.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<FeedbackResponse>;
 }
 
 
