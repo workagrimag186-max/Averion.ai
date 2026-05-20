@@ -145,7 +145,7 @@ def build_citations(chunks: list[dict]) -> list[dict]:
             # Use existing chunk_id if present, otherwise construct it
             chunk_id = chunk.get("chunk_id")
             if not chunk_id:
-                chunk_id = f"{document_id}_{chunk_index}"
+                chunk_id = f"{document_id}:{chunk_index}"
             
             # Use existing filename if present, otherwise get from metadata or fallback
             filename = chunk.get("filename")
