@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.chat import router as chat_router
 from app.api.documents import router as documents_router
+from app.api.feedback import router as feedback_router
 from app.api.health import router as health_router
 from app.core.config import settings
 
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(documents_router)
     app.include_router(chat_router)
+    app.include_router(feedback_router)
 
     @app.get("/", tags=["root"])
     def read_root() -> dict[str, str]:
