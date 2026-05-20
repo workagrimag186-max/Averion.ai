@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
+from app.ai.citation_mapper import build_citations
 from app.ai.llm_service import generate_answer
 from app.ai.prompt_builder import build_rag_prompt
 from app.ai.retrieval import retrieve_chunks
@@ -11,19 +12,6 @@ from app.schemas.chat import ChatCitation, ChatRequest, ChatResponse
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
-def _build_citations(chunks: list[dict]) -> list[ChatCitation]:
-    return [
-        ChatCitation(
-            document_id=chunk.get("document_id", "unknown"),
-            chunk_index=chunk.get("chunk_index", 0),
-            chunk_id=chunk.get("chunk_id", "unknown"),
-            filename=chunk.get("filename") or chunk.get("document_id", "unknown"),
-            page_number=chunk.get("page_number"),
-            snippet=chunk.get("text", "")[:200],
-            score=chunk.get("score")
-        )
-        for chunk in chunks
-    ]
 
 
 @router.post("", response_model=ChatResponse)
@@ -68,8 +56,9 @@ async def chat(request: ChatRequest) -> ChatResponse:
         # No database_url, raw records, or internal config is exposed
         answer = generate_answer(prompt)
         
-        # Step 4: Build citations from retrieved chunks
-        citations = _build_citations(chunks)
+        # Step 4: Build citations from retrieved chunks with enriched metadata
+        citation_dicts = build_citations(chunks)
+        citations = [ChatCitation(**citation) for citation in citation_dicts]
 
         stored_messages = store_chat_exchange(
             organization_id=settings.default_organization_id,
