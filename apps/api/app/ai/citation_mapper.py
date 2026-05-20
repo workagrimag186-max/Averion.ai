@@ -87,9 +87,9 @@ def build_citations(chunks: list[dict]) -> list[dict]:
     Build rich citation objects from retrieved chunks.
     
     Enriches each chunk with metadata from the database:
-    - Constructs chunk_id from document_id and chunk_index
-    - Fetches filename from documents table
-    - Fetches page_number from document_chunks table
+    - Uses existing chunk_id if present, otherwise constructs from document_id and chunk_index
+    - Uses existing filename if present, otherwise fetches from documents table
+    - Uses existing page_number if present, otherwise fetches from document_chunks table
     - Creates snippet from chunk text (first ~200 characters)
     
     Args:
@@ -98,10 +98,13 @@ def build_citations(chunks: list[dict]) -> list[dict]:
             - chunk_index: int
             - text: str
             - score: float (optional)
+            - chunk_id: str (optional, will be constructed if missing)
+            - filename: str (optional, will be fetched if missing)
+            - page_number: int | None (optional, will be fetched if missing)
             
     Returns:
         List of citation dictionaries, each containing:
-            - chunk_id: str (format: "{document_id}_{chunk_index}")
+            - chunk_id: str
             - document_id: str
             - chunk_index: int
             - filename: str
@@ -110,16 +113,26 @@ def build_citations(chunks: list[dict]) -> list[dict]:
             - score: float | None
             
     Note:
+        - Preserves existing metadata from chunks (e.g., from mocks or pre-enriched data)
+        - Only fetches from database if metadata is missing
         - Handles missing database rows gracefully (uses fallback values)
-        - Handles missing page_number (returns None)
         - Returns empty list if input is empty
         - Avoids N+1 queries by fetching all metadata in one batch
     """
     if not chunks:
         return []
     
-    # Fetch all metadata in one batch query
-    metadata_map = fetch_chunk_metadata(chunks)
+    # Check which chunks need metadata from database
+    chunks_needing_metadata = []
+    for chunk in chunks:
+        # Only fetch if filename or page_number is missing
+        if "filename" not in chunk or "page_number" not in chunk:
+            chunks_needing_metadata.append(chunk)
+    
+    # Fetch metadata only for chunks that need it
+    metadata_map = {}
+    if chunks_needing_metadata:
+        metadata_map = fetch_chunk_metadata(chunks_needing_metadata)
     
     citations = []
     for chunk in chunks:
@@ -129,13 +142,22 @@ def build_citations(chunks: list[dict]) -> list[dict]:
             text = chunk.get("text", "")
             score = chunk.get("score")
             
-            # Construct chunk_id
-            chunk_id = f"{document_id}_{chunk_index}"
+            # Use existing chunk_id if present, otherwise construct it
+            chunk_id = chunk.get("chunk_id")
+            if not chunk_id:
+                chunk_id = f"{document_id}_{chunk_index}"
             
-            # Get metadata from batch lookup
-            metadata = metadata_map.get((str(document_id), int(chunk_index)), {})
-            filename = metadata.get("filename", document_id)  # Fallback to document_id
-            page_number = metadata.get("page_number")
+            # Use existing filename if present, otherwise get from metadata or fallback
+            filename = chunk.get("filename")
+            if not filename:
+                metadata = metadata_map.get((str(document_id), int(chunk_index)), {})
+                filename = metadata.get("filename", document_id)
+            
+            # Use existing page_number if present, otherwise get from metadata
+            page_number = chunk.get("page_number")
+            if page_number is None and (str(document_id), int(chunk_index)) in metadata_map:
+                metadata = metadata_map.get((str(document_id), int(chunk_index)), {})
+                page_number = metadata.get("page_number")
             
             # Create snippet (first ~200 characters, safe truncation)
             snippet = text[:200] if text else ""
