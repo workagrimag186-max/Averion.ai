@@ -51,6 +51,16 @@ export type ChatResponse = {
 };
 
 
+export type FeedbackRating = "up" | "down";
+
+
+export type FeedbackDraft = {
+  message_id: string;
+  rating: FeedbackRating;
+  correction_text: string | null;
+};
+
+
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: "POST",

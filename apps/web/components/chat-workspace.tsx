@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 
 import { CitationSourcePanel } from "@/components/citation-source-panel";
+import { FeedbackControls } from "@/components/feedback-controls";
 import { ChatCitation, sendChatMessage } from "@/lib/api";
 
 type ChatMessage = {
@@ -101,6 +102,10 @@ export function ChatWorkspace() {
                     </p>
                     <CitationSourcePanel citations={message.citations} />
                   </div>
+                ) : null}
+
+                {message.role === "assistant" ? (
+                  <FeedbackControls messageId={message.id} />
                 ) : null}
               </div>
             </article>
