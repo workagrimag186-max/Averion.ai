@@ -118,7 +118,8 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <button
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={uploadState === "uploading"}
               onClick={() => inputRef.current?.click()}
               type="button"
             >
@@ -157,8 +158,21 @@ export function DocumentUpload({ onUploadComplete }: DocumentUploadProps) {
         )}
 
         {errorMessage ? (
-          <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {errorMessage}
+          <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-4" role="alert">
+            <p className="text-sm font-semibold text-red-800">Upload could not continue</p>
+            <p className="mt-1 text-sm leading-6 text-red-700">{errorMessage}</p>
+          </div>
+        ) : null}
+
+        {uploadState === "uploading" ? (
+          <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 p-4" aria-live="polite">
+            <p className="text-sm font-semibold text-blue-800">Uploading and processing</p>
+            <p className="mt-1 text-sm leading-6 text-blue-700">
+              The backend is saving metadata, extracting text, and storing chunks.
+            </p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-blue-100">
+              <div className="h-full w-2/3 rounded-full bg-blue-600" />
+            </div>
           </div>
         ) : null}
 
