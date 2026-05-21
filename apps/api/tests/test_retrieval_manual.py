@@ -30,12 +30,14 @@ def test_retrieval(monkeypatch):
     chunks = [
         {
             "document_id": "doc1",
+            "organization_id": "org-retrieval",
             "chunk_index": 0,
             "page_number": 1,
             "text": "FastAPI is a web framework"
         },
         {
             "document_id": "doc1",
+            "organization_id": "org-retrieval",
             "chunk_index": 1,
             "page_number": 1,
             "text": "Python is used for AI"
@@ -50,7 +52,7 @@ def test_retrieval(monkeypatch):
     
     # Query
     query = "What is FastAPI?"
-    results = retrieve_chunks(query, top_k=2)
+    results = retrieve_chunks(query, top_k=2, organization_id="org-retrieval")
     
     # Verify
     assert len(results) > 0, "No results returned"
@@ -58,6 +60,7 @@ def test_retrieval(monkeypatch):
     for result in results:
         assert "text" in result, "Missing text field"
         assert "document_id" in result, "Missing document_id field"
+        assert "organization_id" in result, "Missing organization_id field"
         assert "chunk_index" in result, "Missing chunk_index field"
         assert "chunk_id" in result, "Missing chunk_id field"
         assert "page_number" in result, "Missing page_number field"
@@ -66,6 +69,7 @@ def test_retrieval(monkeypatch):
             result["document_id"],
             result["chunk_index"]
         )
+        assert result["organization_id"] == "org-retrieval"
     
     # Print results
     print(f"\nQuery: {query}")

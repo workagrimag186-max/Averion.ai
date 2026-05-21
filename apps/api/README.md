@@ -88,6 +88,17 @@ LLM_PROVIDER_API_KEY
 
 Real `.env` files must stay local and must not be committed to Git.
 
+## Organization Scope
+
+The MVP does not have authentication or organization switching yet. Until that
+exists, every API request is scoped through
+`app.core.organization.get_current_organization_id()`, which currently returns
+`DEFAULT_ORGANIZATION_ID`.
+
+This temporary development path is intentionally isolated in one helper so it
+can be replaced later by auth/session-based organization lookup. Documents,
+conversations, and vector retrieval all use this organization scope.
+
 ## Current API
 
 - `GET /` - service welcome response
@@ -129,6 +140,8 @@ record automatically.
 Vector search results include `document_id`, `chunk_index`, and a stable
 `chunk_id` value formatted as `document_id:chunk_index`. That metadata links
 Chroma vector results back to the matching Supabase `document_chunks` row.
+Vector metadata also includes `organization_id`, and chat retrieval filters
+results to the current organization.
 
 ## Chat API Contract
 

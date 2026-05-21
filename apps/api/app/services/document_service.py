@@ -121,6 +121,9 @@ async def save_uploaded_document(
                 file_type=file_type.value,
                 document_id=document_id
             )
+            for chunk in chunks:
+                chunk["organization_id"] = organization_id
+
             chunk_records = _build_chunk_records(chunks, document_id)
 
             if chunk_records:

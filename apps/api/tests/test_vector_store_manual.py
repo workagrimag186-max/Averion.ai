@@ -45,24 +45,28 @@ def test_vector_store(monkeypatch):
     chunks = [
         {
             "document_id": "doc1",
+            "organization_id": "org-vector",
             "chunk_index": 0,
             "page_number": 1,
             "text": "FastAPI is a modern web framework for building APIs"
         },
         {
             "document_id": "doc1",
+            "organization_id": "org-vector",
             "chunk_index": 1,
             "page_number": 1,
             "text": "Python is a high-level programming language"
         },
         {
             "document_id": "doc2",
+            "organization_id": "org-vector",
             "chunk_index": 0,
             "page_number": 1,
             "text": "Machine learning models require training data"
         },
         {
             "document_id": "doc2",
+            "organization_id": "org-vector",
             "chunk_index": 1,
             "page_number": 2,
             "text": "Vector databases store embeddings efficiently"
@@ -80,7 +84,7 @@ def test_vector_store(monkeypatch):
     # Query with embedding from first chunk
     print("\n3. Searching for similar chunks...")
     query_embedding = chunks[0]["embedding"]
-    results = search_similar(query_embedding, top_k=2)
+    results = search_similar(query_embedding, top_k=2, organization_id="org-vector")
     
     print(f"   [OK] Found {len(results)} results")
     
@@ -93,6 +97,7 @@ def test_vector_store(monkeypatch):
         print(f"\n   Result {i + 1}:")
         assert "text" in result, "Missing 'text' field"
         assert "document_id" in result, "Missing 'document_id' field"
+        assert "organization_id" in result, "Missing 'organization_id' field"
         assert "chunk_index" in result, "Missing 'chunk_index' field"
         assert "chunk_id" in result, "Missing 'chunk_id' field"
         assert "page_number" in result, "Missing 'page_number' field"
@@ -101,6 +106,7 @@ def test_vector_store(monkeypatch):
             result["document_id"],
             result["chunk_index"]
         )
+        assert result["organization_id"] == "org-vector"
         
         print(f"     - Document ID: {result['document_id']}")
         print(f"     - Chunk Index: {result['chunk_index']}")
@@ -131,6 +137,7 @@ def test_vector_upsert_does_not_delete_existing_vectors(monkeypatch):
     first_batch = generate_embeddings([
         {
             "document_id": "doc-upsert-a",
+            "organization_id": "org-upsert",
             "chunk_index": 0,
             "page_number": None,
             "text": "FastAPI keeps APIs organized"
@@ -139,6 +146,7 @@ def test_vector_upsert_does_not_delete_existing_vectors(monkeypatch):
     second_batch = generate_embeddings([
         {
             "document_id": "doc-upsert-b",
+            "organization_id": "org-upsert",
             "chunk_index": 0,
             "page_number": None,
             "text": "Python is useful for AI services"
@@ -148,11 +156,50 @@ def test_vector_upsert_does_not_delete_existing_vectors(monkeypatch):
     store_embeddings(first_batch, clear_existing=True)
     store_embeddings(second_batch)
 
-    fastapi_results = search_similar(first_batch[0]["embedding"], top_k=5)
-    python_results = search_similar(second_batch[0]["embedding"], top_k=5)
+    fastapi_results = search_similar(
+        first_batch[0]["embedding"],
+        top_k=5,
+        organization_id="org-upsert"
+    )
+    python_results = search_similar(
+        second_batch[0]["embedding"],
+        top_k=5,
+        organization_id="org-upsert"
+    )
 
     assert any(result["document_id"] == "doc-upsert-a" for result in fastapi_results)
     assert any(result["document_id"] == "doc-upsert-b" for result in python_results)
+
+
+def test_vector_search_filters_by_organization(monkeypatch):
+    monkeypatch.setattr("app.ai.embeddings._model", FakeEmbeddingModel())
+
+    chunks = generate_embeddings([
+        {
+            "document_id": "doc-org-a",
+            "organization_id": "org-a",
+            "chunk_index": 0,
+            "page_number": None,
+            "text": "FastAPI keeps APIs organized"
+        },
+        {
+            "document_id": "doc-org-b",
+            "organization_id": "org-b",
+            "chunk_index": 0,
+            "page_number": None,
+            "text": "FastAPI keeps APIs organized"
+        }
+    ])
+
+    store_embeddings(chunks, clear_existing=True)
+
+    org_a_results = search_similar(chunks[0]["embedding"], top_k=5, organization_id="org-a")
+    org_b_results = search_similar(chunks[0]["embedding"], top_k=5, organization_id="org-b")
+
+    assert org_a_results
+    assert org_b_results
+    assert all(result["organization_id"] == "org-a" for result in org_a_results)
+    assert all(result["organization_id"] == "org-b" for result in org_b_results)
 
 
 if __name__ == "__main__":

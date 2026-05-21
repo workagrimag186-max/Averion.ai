@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
-from app.db.chat import StoredChatMessages
+from app.core.config import settings
+from app.db.chat import ConversationNotFoundError, StoredChatMessages
 from app.db.documents import DatabaseNotConfiguredError
 from app.main import app
 
@@ -11,9 +12,10 @@ client = TestClient(app)
 def test_chat_endpoint_returns_answer_and_stores_messages(monkeypatch) -> None:
     stored_payload = {}
 
-    def fake_retrieve_chunks(query: str, top_k: int) -> list[dict]:
+    def fake_retrieve_chunks(query: str, top_k: int, organization_id: str) -> list[dict]:
         assert query == "What is the refund policy?"
         assert top_k > 0
+        assert organization_id == settings.default_organization_id
 
         return [
             {
@@ -75,6 +77,7 @@ def test_chat_endpoint_returns_answer_and_stores_messages(monkeypatch) -> None:
         ]
     }
     assert stored_payload["conversation_id"] is None
+    assert stored_payload["organization_id"] == settings.default_organization_id
     assert stored_payload["question"] == "What is the refund policy?"
     assert stored_payload["answer"] == "Refunds are available within 30 days."
     assert stored_payload["citations"][0]["chunk_id"] == "doc_123:0"
@@ -89,7 +92,7 @@ def test_chat_endpoint_handles_no_retrieval_results(monkeypatch) -> None:
             assistant_message_id="msg_assistant_empty"
         )
 
-    monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k: [])
+    monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id: [])
     monkeypatch.setattr(
         "app.api.chat.build_rag_prompt",
         lambda question, chunks: "prompt without context"
@@ -115,7 +118,7 @@ def test_chat_endpoint_handles_no_retrieval_results(monkeypatch) -> None:
 
 
 def test_chat_endpoint_returns_500_for_llm_provider_error(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k: [])
+    monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id: [])
     monkeypatch.setattr("app.api.chat.build_rag_prompt", lambda question, chunks: "prompt")
 
     def fake_generate_answer(prompt: str) -> str:
@@ -136,7 +139,7 @@ def test_chat_endpoint_returns_500_for_llm_provider_error(monkeypatch) -> None:
 
 
 def test_chat_endpoint_returns_503_when_database_is_not_configured(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k: [])
+    monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id: [])
     monkeypatch.setattr("app.api.chat.build_rag_prompt", lambda question, chunks: "prompt")
     monkeypatch.setattr("app.api.chat.generate_answer", lambda prompt: "answer")
 
@@ -155,3 +158,25 @@ def test_chat_endpoint_returns_503_when_database_is_not_configured(monkeypatch) 
 
     assert response.status_code == 503
     assert response.json() == {"detail": "DATABASE_URL is not configured."}
+
+
+def test_chat_endpoint_returns_404_for_cross_organization_conversation(monkeypatch) -> None:
+    monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id: [])
+    monkeypatch.setattr("app.api.chat.build_rag_prompt", lambda question, chunks: "prompt")
+    monkeypatch.setattr("app.api.chat.generate_answer", lambda prompt: "answer")
+
+    def fake_store_chat_exchange(**kwargs) -> StoredChatMessages:
+        raise ConversationNotFoundError("Conversation not found for this organization.")
+
+    monkeypatch.setattr("app.api.chat.store_chat_exchange", fake_store_chat_exchange)
+
+    response = client.post(
+        "/chat",
+        json={
+            "conversation_id": "00000000-0000-0000-0000-000000000999",
+            "question": "Hello?"
+        }
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Conversation not found for this organization."}

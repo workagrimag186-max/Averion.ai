@@ -123,9 +123,11 @@ DEFAULT_ORGANIZATION_ID=00000000-0000-0000-0000-000000000001
 
 Never commit `apps/api/.env`.
 
-Until real auth exists, uploads use `DEFAULT_ORGANIZATION_ID`. The backend creates
-a temporary `Development Organization` row automatically when it stores document
-metadata.
+Until real auth exists, requests use `DEFAULT_ORGANIZATION_ID` through
+`app.core.organization.get_current_organization_id()`. The backend creates a
+temporary `Development Organization` row automatically when it stores document
+metadata. Documents, conversations, and vector retrieval are scoped through this
+temporary organization path so it can be replaced cleanly by real auth later.
 
 When `DATABASE_URL` is configured, uploaded documents also run through the
 extraction, cleaning, and chunking pipeline. Produced chunks are stored in the
