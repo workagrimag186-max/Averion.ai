@@ -1,6 +1,8 @@
 import chromadb
 from typing import Any
 
+from app.core.config import settings
+
 # Initialize ChromaDB with persistent storage
 client = chromadb.PersistentClient(path="./chroma_db")
 
@@ -54,6 +56,9 @@ def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
         
         try:
             document_id = str(chunk["document_id"])
+            organization_id = str(
+                chunk.get("organization_id") or settings.default_organization_id
+            )
             chunk_index = chunk["chunk_index"]
             chunk_id = str(chunk.get("chunk_id") or build_chunk_id(document_id, chunk_index))
             page_number = chunk.get("page_number")
@@ -64,6 +69,7 @@ def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
             documents.append(chunk["text"])
             metadatas.append({
                 "document_id": document_id,
+                "organization_id": organization_id,
                 "chunk_index": int(chunk_index),
                 "chunk_id": chunk_id,
                 "page_number": page_number if page_number is not None else -1
@@ -82,7 +88,11 @@ def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
         )
 
 
-def search_similar(query_embedding: list[float], top_k: int = 3) -> list[dict]:
+def search_similar(
+    query_embedding: list[float],
+    top_k: int = 3,
+    organization_id: str | None = None
+) -> list[dict]:
     """
     Search for similar chunks using query embedding.
     
@@ -99,11 +109,19 @@ def search_similar(query_embedding: list[float], top_k: int = 3) -> list[dict]:
             return []
         
         # Query ChromaDB
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"]
-        )
+        where_filter = None
+        if organization_id:
+            where_filter = {"organization_id": organization_id}
+
+        query_args: dict[str, Any] = {
+            "query_embeddings": [query_embedding],
+            "n_results": top_k,
+            "include": ["documents", "metadatas", "distances"]
+        }
+        if where_filter is not None:
+            query_args["where"] = where_filter
+
+        results = collection.query(**query_args)
         
         # Safety checks
         if not results:
@@ -131,6 +149,7 @@ def search_similar(query_embedding: list[float], top_k: int = 3) -> list[dict]:
             output.append({
                 "text": doc,
                 "document_id": meta.get("document_id"),
+                "organization_id": meta.get("organization_id"),
                 "chunk_index": meta.get("chunk_index"),
                 "chunk_id": meta.get("chunk_id"),
                 "page_number": None if page_number == -1 else page_number,

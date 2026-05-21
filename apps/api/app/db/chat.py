@@ -11,6 +11,10 @@ from app.db.documents import DatabaseNotConfiguredError
 from app.db.schema import MessageRole
 
 
+class ConversationNotFoundError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class StoredChatMessages:
     conversation_id: str
@@ -52,18 +56,36 @@ def store_chat_exchange(
             if organization_id == settings.default_organization_id:
                 _ensure_development_organization(cursor)
 
-            cursor.execute(
-                """
-                insert into conversations (id, organization_id, title)
-                values (%s::uuid, %s::uuid, %s)
-                on conflict (id) do update set updated_at = now()
-                """,
-                (
-                    resolved_conversation_id,
-                    organization_id,
-                    question[:80]
+            if conversation_id is None:
+                cursor.execute(
+                    """
+                    insert into conversations (id, organization_id, title)
+                    values (%s::uuid, %s::uuid, %s)
+                    """,
+                    (
+                        resolved_conversation_id,
+                        organization_id,
+                        question[:80]
+                    )
                 )
-            )
+            else:
+                cursor.execute(
+                    """
+                    select id
+                    from conversations
+                    where id = %s::uuid
+                        and organization_id = %s::uuid
+                    """,
+                    (
+                        resolved_conversation_id,
+                        organization_id
+                    )
+                )
+
+                if cursor.fetchone() is None:
+                    raise ConversationNotFoundError(
+                        "Conversation not found for this organization."
+                    )
 
             cursor.execute(
                 """
@@ -98,8 +120,12 @@ def store_chat_exchange(
                 update conversations
                 set updated_at = now()
                 where id = %s::uuid
+                    and organization_id = %s::uuid
                 """,
-                (resolved_conversation_id,)
+                (
+                    resolved_conversation_id,
+                    organization_id
+                )
             )
 
     return StoredChatMessages(

@@ -1,11 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.ai.citation_mapper import build_citations
 from app.ai.llm_service import generate_answer
 from app.ai.prompt_builder import build_rag_prompt
 from app.ai.retrieval import retrieve_chunks
+from app.core.organization import get_current_organization_id
 from app.core.config import settings
-from app.db.chat import store_chat_exchange
+from app.db.chat import ConversationNotFoundError, store_chat_exchange
 from app.db.documents import DatabaseNotConfiguredError
 from app.schemas.chat import ChatCitation, ChatRequest, ChatResponse
 
@@ -15,7 +16,10 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("", response_model=ChatResponse)
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(
+    request: ChatRequest,
+    organization_id: str = Depends(get_current_organization_id)
+) -> ChatResponse:
     """
     Process a chat question and return an AI-generated answer with citations.
     
@@ -42,7 +46,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
         # Step 1: Retrieve relevant chunks
         chunks = retrieve_chunks(
             query=request.question,
-            top_k=settings.retrieval_top_k
+            top_k=settings.retrieval_top_k,
+            organization_id=organization_id
         )
         
         # Step 2: Build RAG prompt
@@ -61,7 +66,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         citations = [ChatCitation(**citation) for citation in citation_dicts]
 
         stored_messages = store_chat_exchange(
-            organization_id=settings.default_organization_id,
+            organization_id=organization_id,
             conversation_id=request.conversation_id,
             question=request.question.strip(),
             answer=answer,
@@ -80,6 +85,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
         raise HTTPException(status_code=500, detail=str(e))
     except DatabaseNotConfiguredError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except ConversationNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
         # Log error in production
         print(f"Chat error: {str(e)}")

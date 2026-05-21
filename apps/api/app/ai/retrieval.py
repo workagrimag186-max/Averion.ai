@@ -1,8 +1,13 @@
 from app.ai.embeddings import embed_text
 from app.ai.vector_store import search_similar
+from app.core.config import settings
 
 
-def retrieve_chunks(query: str, top_k: int = 3) -> list[dict]:
+def retrieve_chunks(
+    query: str,
+    top_k: int = 3,
+    organization_id: str | None = None
+) -> list[dict]:
     """
     Retrieve similar chunks for a given query.
     
@@ -22,7 +27,11 @@ def retrieve_chunks(query: str, top_k: int = 3) -> list[dict]:
         query_embedding = embed_text(query)
         
         # Call vector search
-        results = search_similar(query_embedding, top_k)
+        results = search_similar(
+            query_embedding,
+            top_k,
+            organization_id=organization_id or settings.default_organization_id
+        )
         
         # Format output
         output = []
@@ -30,6 +39,7 @@ def retrieve_chunks(query: str, top_k: int = 3) -> list[dict]:
             output.append({
                 "text": result["text"],
                 "document_id": result["document_id"],
+                "organization_id": result["organization_id"],
                 "chunk_index": result["chunk_index"],
                 "chunk_id": result["chunk_id"],
                 "page_number": result["page_number"],

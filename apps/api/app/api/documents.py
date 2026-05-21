@@ -1,5 +1,6 @@
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
+from app.core.organization import get_current_organization_id
 from app.core.config import settings
 from app.db.documents import DatabaseNotConfiguredError, list_documents
 from app.schemas.documents import DocumentListItem, DocumentUploadResponse
@@ -14,9 +15,11 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 @router.get("", response_model=list[DocumentListItem])
-def get_documents() -> list[DocumentListItem]:
+def get_documents(
+    organization_id: str = Depends(get_current_organization_id)
+) -> list[DocumentListItem]:
     try:
-        records = list_documents(settings.default_organization_id)
+        records = list_documents(organization_id)
     except DatabaseNotConfiguredError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -44,12 +47,15 @@ def get_documents() -> list[DocumentListItem]:
     response_model=DocumentUploadResponse,
     status_code=status.HTTP_201_CREATED
 )
-async def upload_document(file: UploadFile = File(...)) -> DocumentUploadResponse:
+async def upload_document(
+    file: UploadFile = File(...),
+    organization_id: str = Depends(get_current_organization_id)
+) -> DocumentUploadResponse:
     try:
         return await save_uploaded_document(
             file=file,
             upload_dir=settings.upload_dir,
-            organization_id=settings.default_organization_id
+            organization_id=organization_id
         )
     except UnsupportedDocumentTypeError as exc:
         raise HTTPException(
