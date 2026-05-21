@@ -76,8 +76,15 @@ export function ChatWorkspace() {
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           {messages.length === 0 ? (
-            <div className="rounded-md bg-slate-50 p-5 text-sm leading-6 text-slate-600">
-              Try asking: What does the uploaded document say?
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-5">
+              <p className="text-sm font-semibold text-slate-800">No messages yet</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Ask a question after uploading a document. Answers will appear here with
+                sources and feedback controls.
+              </p>
+              <p className="mt-3 text-sm font-medium text-slate-700">
+                Try: What does the uploaded document say?
+              </p>
             </div>
           ) : null}
 
@@ -95,12 +102,12 @@ export function ChatWorkspace() {
               >
                 <p className="whitespace-pre-wrap">{message.content}</p>
 
-                {message.role === "assistant" && message.citations?.length ? (
+                {message.role === "assistant" ? (
                   <div className="mt-4 space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
                       Sources
                     </p>
-                    <CitationSourcePanel citations={message.citations} />
+                    <CitationSourcePanel citations={message.citations ?? []} />
                   </div>
                 ) : null}
 
@@ -112,14 +119,32 @@ export function ChatWorkspace() {
           ))}
 
           {isSending ? (
-            <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              Generating answer...
+            <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-4" aria-live="polite">
+              <p className="text-sm font-medium text-slate-700">Generating answer...</p>
+              <div className="space-y-2">
+                <div className="h-4 w-3/4 rounded bg-slate-200" />
+                <div className="h-4 w-1/2 rounded bg-slate-200" />
+              </div>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+                  Sources
+                </p>
+                <CitationSourcePanel citations={[]} isLoading />
+              </div>
             </div>
           ) : null}
 
           {errorMessage ? (
-            <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {errorMessage}
+            <div className="rounded-md border border-red-200 bg-red-50 p-4" role="alert">
+              <p className="text-sm font-semibold text-red-800">Chat request failed</p>
+              <p className="mt-1 text-sm leading-6 text-red-700">{errorMessage}</p>
+              <button
+                className="mt-3 rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                onClick={() => setErrorMessage(null)}
+                type="button"
+              >
+                Dismiss
+              </button>
             </div>
           ) : null}
         </div>

@@ -113,13 +113,21 @@ export function FeedbackControls({ messageId }: FeedbackControlsProps) {
       ) : null}
 
       {submitState === "submitted" ? (
-        <p className="mt-2 text-xs font-medium text-green-700">Feedback captured.</p>
+        <div className="mt-2 rounded-md border border-green-200 bg-green-50 px-3 py-2" aria-live="polite">
+          <p className="text-xs font-semibold text-green-800">Feedback captured</p>
+          <p className="mt-1 text-xs leading-5 text-green-700">
+            This response is now available for future review.
+          </p>
+        </div>
       ) : null}
 
       {submitState === "error" ? (
-        <p className="mt-2 text-xs font-medium text-red-700">
-          Feedback could not be submitted.
-        </p>
+        <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2" role="alert">
+          <p className="text-xs font-semibold text-red-800">Feedback could not be submitted</p>
+          <p className="mt-1 text-xs leading-5 text-red-700">
+            Check that the API is running, then try again.
+          </p>
+        </div>
       ) : null}
     </div>
   );
