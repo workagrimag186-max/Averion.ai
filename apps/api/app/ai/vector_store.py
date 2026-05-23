@@ -4,7 +4,7 @@ from typing import Any
 from app.core.config import settings
 
 # Initialize ChromaDB with persistent storage
-client = chromadb.PersistentClient(path="./chroma_db")
+client = chromadb.PersistentClient(path=settings.vector_db_path)
 
 collection = client.get_or_create_collection("documents")
 
@@ -40,6 +40,8 @@ def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
         clear_existing: When True, reset the collection before storing.
             This is intended for tests only.
     """
+    print(f"[DEBUG] Storing chunks: {len(chunks)}")
+    
     if clear_existing:
         reset_collection()
     
@@ -52,6 +54,12 @@ def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
     for chunk in chunks:
         # Skip chunks without embeddings
         if "embedding" not in chunk:
+            print(f"[DEBUG] Skipping chunk without embedding: {chunk.get('chunk_index')}")
+            continue
+        
+        embedding = chunk["embedding"]
+        if not embedding or not isinstance(embedding, list):
+            print(f"[DEBUG] Invalid embedding format for chunk {chunk.get('chunk_index')}")
             continue
         
         try:
@@ -65,7 +73,7 @@ def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
             
             # Append to batch lists
             ids.append(chunk_id)
-            embeddings.append(chunk["embedding"])
+            embeddings.append(embedding)
             documents.append(chunk["text"])
             metadatas.append({
                 "document_id": document_id,
@@ -74,18 +82,22 @@ def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
                 "chunk_id": chunk_id,
                 "page_number": page_number if page_number is not None else -1
             })
-        except Exception:
-            # Skip failed chunks silently
+        except Exception as e:
+            print(f"[DEBUG] Failed to process chunk {chunk.get('chunk_index')}: {e}")
             continue
     
     # Batch insert all chunks at once
     if ids:
+        print(f"[DEBUG] Upserting {len(ids)} chunks to ChromaDB")
         collection.upsert(
             ids=ids,
             embeddings=embeddings,
             documents=documents,
             metadatas=metadatas
         )
+        print(f"[DEBUG] Collection count after upsert: {collection.count()}")
+    else:
+        print("[DEBUG] No valid chunks to store")
 
 
 def search_similar(
@@ -105,7 +117,10 @@ def search_similar(
     """
     try:
         # Check if collection is empty
-        if collection.count() == 0:
+        count = collection.count()
+        print(f"[DEBUG] Collection count: {count}")
+        if count == 0:
+            print("[DEBUG] Collection is empty, returning no results")
             return []
         
         # Query ChromaDB

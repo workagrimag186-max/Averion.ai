@@ -50,16 +50,22 @@ async def chat(
             organization_id=organization_id
         )
         
+        # Debug: Log retrieved chunks count
+        print(f"[DEBUG] Retrieved {len(chunks)} chunks for query: {request.question[:100]}")
+        
         # Step 2: Build RAG prompt
         prompt = build_rag_prompt(
             question=request.question,
             chunks=chunks
         )
         
+        # Debug: Log prompt sent to LLM
+        print(f"[DEBUG] Prompt sent to LLM (first 500 chars): {prompt[:500]}")
+        
         # Step 3: Generate answer using LLM
         # SECURITY: Only the prompt is passed to the LLM
         # No database_url, raw records, or internal config is exposed
-        answer = generate_answer(prompt)
+        answer = generate_answer(prompt, chunks)
         
         # Step 4: Build citations from retrieved chunks with enriched metadata
         citation_dicts = build_citations(chunks)
@@ -77,7 +83,8 @@ async def chat(
             conversation_id=stored_messages.conversation_id,
             message_id=stored_messages.assistant_message_id,
             answer=answer,
-            citations=citations
+            citations=citations,
+            sources=chunks
         )
         
     except ValueError as e:

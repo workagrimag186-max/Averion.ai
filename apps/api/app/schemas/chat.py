@@ -21,3 +21,4 @@ class ChatResponse(BaseModel):
     message_id: str
     answer: str
     citations: list[ChatCitation]
+    sources: list[dict] = []
