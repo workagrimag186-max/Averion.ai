@@ -4,6 +4,8 @@ from uuid import uuid4
 from fastapi import UploadFile
 
 from app.ai.ingestion_pipeline import run_ingestion_pipeline
+from app.ai.embeddings import generate_embeddings
+from app.ai.vector_store import store_embeddings
 from app.db.schema import DocumentFileType, DocumentStatus
 from app.db.connection import is_database_configured
 from app.db.documents import (
@@ -128,6 +130,11 @@ async def save_uploaded_document(
 
             if chunk_records:
                 chunks_stored = create_document_chunks(chunk_records)
+                
+                # Generate embeddings and store in vector DB
+                chunks_with_embeddings = generate_embeddings(chunks)
+                store_embeddings(chunks_with_embeddings)
+                
                 status = DocumentStatus.READY.value
                 update_document_status(document_id, status)
             else:
