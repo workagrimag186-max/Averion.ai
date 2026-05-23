@@ -41,7 +41,8 @@ def test_chat_response_serializes_citation_contract() -> None:
                 snippet="Refunds are available within 30 days.",
                 score=0.12
             )
-        ]
+        ],
+        sources=[]
     )
 
     assert response.model_dump() == {
@@ -58,5 +59,6 @@ def test_chat_response_serializes_citation_contract() -> None:
                 "snippet": "Refunds are available within 30 days.",
                 "score": 0.12
             }
-        ]
+        ],
+        "sources": []
     }

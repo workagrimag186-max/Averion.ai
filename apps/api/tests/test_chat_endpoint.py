@@ -34,7 +34,7 @@ def test_chat_endpoint_returns_answer_and_stores_messages(monkeypatch) -> None:
         assert chunks[0]["chunk_id"] == "doc_123:0"
         return "prompt"
 
-    def fake_generate_answer(prompt: str) -> str:
+    def fake_generate_answer(prompt: str, chunks: list[dict] | None = None) -> str:
         assert prompt == "prompt"
         return "Refunds are available within 30 days."
 
@@ -74,6 +74,17 @@ def test_chat_endpoint_returns_answer_and_stores_messages(monkeypatch) -> None:
                 "snippet": "Refunds are available within 30 days.",
                 "score": 0.12
             }
+        ],
+        "sources": [
+            {
+                "document_id": "doc_123",
+                "chunk_index": 0,
+                "chunk_id": "doc_123:0",
+                "filename": "policy.pdf",
+                "page_number": 4,
+                "text": "Refunds are available within 30 days.",
+                "score": 0.12
+            }
         ]
     }
     assert stored_payload["conversation_id"] is None
@@ -99,7 +110,7 @@ def test_chat_endpoint_handles_no_retrieval_results(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "app.api.chat.generate_answer",
-        lambda prompt: "I don't know based on the available documents."
+        lambda prompt, chunks=None: "I don't know based on the available documents."
     )
     monkeypatch.setattr("app.api.chat.store_chat_exchange", fake_store_chat_exchange)
 
@@ -121,7 +132,7 @@ def test_chat_endpoint_returns_500_for_llm_provider_error(monkeypatch) -> None:
     monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id: [])
     monkeypatch.setattr("app.api.chat.build_rag_prompt", lambda question, chunks: "prompt")
 
-    def fake_generate_answer(prompt: str) -> str:
+    def fake_generate_answer(prompt: str, chunks: list[dict] | None = None) -> str:
         raise ValueError("Unsupported LLM provider: bad-provider")
 
     monkeypatch.setattr("app.api.chat.generate_answer", fake_generate_answer)
@@ -141,7 +152,7 @@ def test_chat_endpoint_returns_500_for_llm_provider_error(monkeypatch) -> None:
 def test_chat_endpoint_returns_503_when_database_is_not_configured(monkeypatch) -> None:
     monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id: [])
     monkeypatch.setattr("app.api.chat.build_rag_prompt", lambda question, chunks: "prompt")
-    monkeypatch.setattr("app.api.chat.generate_answer", lambda prompt: "answer")
+    monkeypatch.setattr("app.api.chat.generate_answer", lambda prompt, chunks=None: "answer")
 
     def fake_store_chat_exchange(**kwargs) -> StoredChatMessages:
         raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
@@ -163,7 +174,7 @@ def test_chat_endpoint_returns_503_when_database_is_not_configured(monkeypatch) 
 def test_chat_endpoint_returns_404_for_cross_organization_conversation(monkeypatch) -> None:
     monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id: [])
     monkeypatch.setattr("app.api.chat.build_rag_prompt", lambda question, chunks: "prompt")
-    monkeypatch.setattr("app.api.chat.generate_answer", lambda prompt: "answer")
+    monkeypatch.setattr("app.api.chat.generate_answer", lambda prompt, chunks=None: "answer")
 
     def fake_store_chat_exchange(**kwargs) -> StoredChatMessages:
         raise ConversationNotFoundError("Conversation not found for this organization.")
