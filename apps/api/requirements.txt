@@ -7,3 +7,4 @@ sentence-transformers
 chromadb
 PyPDF2
 python-docx
+openai
