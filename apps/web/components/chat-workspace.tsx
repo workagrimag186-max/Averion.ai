@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { CitationSourcePanel } from "@/components/citation-source-panel";
 import { FeedbackControls } from "@/components/feedback-controls";
@@ -13,6 +13,18 @@ type ChatMessage = {
   citations?: ChatCitation[];
 };
 
+function subscribeToSpeechSupport() {
+  return () => {};
+}
+
+function getSpeechSupportSnapshot() {
+  return !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition;
+}
+
+function getServerSpeechSupportSnapshot() {
+  return false;
+}
+
 export function ChatWorkspace() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
@@ -23,12 +35,11 @@ export function ChatWorkspace() {
   const recognitionRef = useRef<any>(null);
 
   const canSend = useMemo(() => question.trim().length > 0 && !isSending, [question, isSending]);
-
-  // Check speech recognition support
-  const speechSupported = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    return !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition;
-  }, []);
+  const speechSupported = useSyncExternalStore(
+    subscribeToSpeechSupport,
+    getSpeechSupportSnapshot,
+    getServerSpeechSupportSnapshot
+  );
 
   useEffect(() => {
     if (!speechSupported) return;
