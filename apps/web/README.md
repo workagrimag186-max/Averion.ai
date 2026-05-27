@@ -61,6 +61,9 @@ The Supabase variables are prepared for the upcoming auth issues. Fill them in f
 - `/` - product overview placeholder
 - `/documents` - document upload workspace
 - `/chat` - chat area placeholder
+- `/login` - email/password sign in
+- `/signup` - email/password account creation
+- `/auth/callback` - Supabase auth redirect handler
 
 ## Upload Flow
 
