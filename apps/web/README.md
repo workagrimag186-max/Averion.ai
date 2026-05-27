@@ -61,9 +61,14 @@ The Supabase variables are prepared for the upcoming auth issues. Fill them in f
 - `/` - product overview placeholder
 - `/documents` - document upload workspace
 - `/chat` - chat area placeholder
+- `/account` - protected account/session summary
 - `/login` - email/password sign in
 - `/signup` - email/password account creation
 - `/auth/callback` - Supabase auth redirect handler for email verification and Google OAuth
+
+The product routes (`/`, `/documents`, `/chat`, and `/account`) require a
+Supabase session. Logged-out users are redirected to `/login` and returned to
+their original route after signing in.
 
 ## Upload Flow
 
