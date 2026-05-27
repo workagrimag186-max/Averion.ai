@@ -86,6 +86,7 @@ This is called RAG: Retrieval-Augmented Generation. We are not training the LLM 
 - [Repository Structure](docs/REPO_STRUCTURE.md)
 - [Database Schema](docs/DATABASE_SCHEMA.md)
 - [Supabase Setup](docs/SUPABASE_SETUP.md)
+- [Supabase Auth Setup](docs/AUTH_SETUP.md)
 
 ## Repository Structure
 
@@ -185,6 +186,9 @@ Planned backend variables:
 ```text
 DATABASE_URL=
 DEFAULT_ORGANIZATION_ID=
+SUPABASE_URL=
+SUPABASE_JWT_SECRET=
+ALLOWED_EMAIL_DOMAINS=
 UPLOAD_DIR=
 CORS_ORIGINS=
 VECTOR_DB_PATH=
@@ -198,6 +202,10 @@ Planned frontend variables:
 
 ```text
 NEXT_PUBLIC_API_BASE_URL=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_AUTH_REDIRECT_URL=
+NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS=
 ```
 
 ## Team Responsibilities

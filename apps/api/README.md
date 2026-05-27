@@ -77,6 +77,9 @@ Current planned variables:
 ```text
 DATABASE_URL
 DEFAULT_ORGANIZATION_ID
+SUPABASE_URL
+SUPABASE_JWT_SECRET
+ALLOWED_EMAIL_DOMAINS
 UPLOAD_DIR
 CORS_ORIGINS
 VECTOR_DB_PATH
@@ -87,6 +90,8 @@ LLM_PROVIDER_API_KEY
 ```
 
 Real `.env` files must stay local and must not be committed to Git.
+The Supabase auth variables are prepared for the upcoming authentication issues.
+See [Supabase Auth Setup](../../docs/AUTH_SETUP.md) before filling them in.
 
 ## Organization Scope
 

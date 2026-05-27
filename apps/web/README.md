@@ -42,13 +42,19 @@ Current variables:
 
 ```text
 NEXT_PUBLIC_API_BASE_URL
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+NEXT_PUBLIC_AUTH_REDIRECT_URL
+NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS
 ```
 
-This points the frontend to the backend API. During local development, the default is:
+`NEXT_PUBLIC_API_BASE_URL` points the frontend to the backend API. During local development, the default is:
 
 ```text
 http://127.0.0.1:8000
 ```
+
+The Supabase variables are prepared for the upcoming auth issues. Fill them in from the Supabase dashboard when working on login/signup. See [Supabase Auth Setup](../../docs/AUTH_SETUP.md).
 
 ## Current Routes
 

@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     service_name: str = "averion-api"
     database_url: str | None = None
     default_organization_id: str = "00000000-0000-0000-0000-000000000001"
+    supabase_url: str | None = None
+    supabase_jwt_secret: str | None = None
+    allowed_email_domains: str = ""
     upload_dir: str = "./uploads"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     vector_db_path: str = "./vector_store"
@@ -26,6 +29,14 @@ class Settings(BaseSettings):
             origin.strip()
             for origin in self.cors_origins.split(",")
             if origin.strip()
+        ]
+
+    @property
+    def allowed_email_domain_list(self) -> list[str]:
+        return [
+            domain.strip().lower()
+            for domain in self.allowed_email_domains.split(",")
+            if domain.strip()
         ]
 
 
