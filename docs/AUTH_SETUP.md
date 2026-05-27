@@ -81,7 +81,21 @@ SUPABASE_JWT_SECRET=your_jwt_secret
 
 The JWT secret must stay server-side only. Never put it in `apps/web/.env.local`, frontend code, screenshots, GitHub issues, or pull request descriptions.
 
-## Step 5: Optional Gmail-Only Validation
+## Step 5: Apply Profile Mapping Migration
+
+If your Supabase database was created before issue 36, run [supabase_auth_profile_migration.sql](supabase_auth_profile_migration.sql) in the Supabase SQL Editor.
+
+This adds profile mapping fields to the existing `users` table:
+
+```text
+auth_user_id
+avatar_url
+job_title
+```
+
+`auth_user_id` links a Supabase Auth identity to Averion's product profile. Passwords and OAuth identities stay inside Supabase Auth; Averion stores only product profile and organization membership data.
+
+## Step 6: Optional Gmail-Only Validation
 
 For the MVP, the recommended default is to allow any valid email address and add Google signin for Gmail/Google users.
 
@@ -94,7 +108,7 @@ ALLOWED_EMAIL_DOMAINS=gmail.com,googlemail.com
 
 The frontend value gives users quick validation feedback. The backend value is the real enforcement point and must be checked before trusting account access.
 
-## Step 6: Google Signin Planning
+## Step 7: Google Signin Planning
 
 Google signin is implemented in a later issue, but setup should be planned now.
 
@@ -139,4 +153,3 @@ Before closing issue 35:
 - `apps/api/.env.example` lists server auth variables.
 - Real `.env` files are not shown in `git status`.
 - No Supabase secrets are committed.
-

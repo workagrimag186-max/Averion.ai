@@ -13,8 +13,11 @@ create table organizations (
 create table users (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references organizations(id) on delete cascade,
+  auth_user_id uuid unique,
   email text not null,
   name text,
+  avatar_url text,
+  job_title text,
   role text not null default 'member',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

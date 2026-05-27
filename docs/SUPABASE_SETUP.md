@@ -101,6 +101,8 @@ Expected result:
 
 You can also check in the Supabase Table Editor that all seven tables are visible.
 
+If your database was created before issue 36, also run [supabase_auth_profile_migration.sql](supabase_auth_profile_migration.sql) to add the Supabase Auth profile mapping columns to `users`.
+
 ## Step 5: Create Local Env File
 
 From the repo root:
