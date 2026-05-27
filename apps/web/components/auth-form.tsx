@@ -41,6 +41,20 @@ const copy = {
   }
 } satisfies Record<AuthMode, Record<string, string>>;
 
+function getSafeNextPath(): string {
+  if (typeof window === "undefined") {
+    return "/";
+  }
+
+  const next = new URLSearchParams(window.location.search).get("next");
+
+  if (!next || !next.startsWith("/") || next.startsWith("//")) {
+    return "/";
+  }
+
+  return next;
+}
+
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
@@ -69,7 +83,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       const { data } = await supabase.auth.getSession();
 
       if (!ignore && data.session) {
-        router.replace("/");
+        router.replace(getSafeNextPath());
       }
     }
 
@@ -152,7 +166,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         kind: "success",
         message: "Signed in. Opening your workspace..."
       });
-      router.replace("/");
+      router.replace(getSafeNextPath());
     } catch (error) {
       setStatus({
         kind: "error",
