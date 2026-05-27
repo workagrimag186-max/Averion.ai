@@ -44,8 +44,11 @@ erDiagram
     users {
       uuid id PK
       uuid organization_id FK
+      uuid auth_user_id
       text email
       text name
+      text avatar_url
+      text job_title
       text role
       timestamptz created_at
       timestamptz updated_at
@@ -124,11 +127,21 @@ Stores people using the product.
 | --- | --- | --- | --- |
 | `id` | `uuid` | Yes | Primary key |
 | `organization_id` | `uuid` | Yes | References `organizations.id` |
+| `auth_user_id` | `uuid` | No | Supabase Auth user id. Unique when present |
 | `email` | `text` | Yes | Unique inside an organization |
 | `name` | `text` | No | Display name |
+| `avatar_url` | `text` | No | Optional profile image URL from OAuth/profile settings |
+| `job_title` | `text` | No | Optional user-entered role/title inside the company |
 | `role` | `text` | Yes | MVP values: `owner`, `member` |
 | `created_at` | `timestamptz` | Yes | Creation time |
 | `updated_at` | `timestamptz` | Yes | Last update time |
+
+Auth mapping notes:
+
+- Supabase Auth owns passwords, email verification, OAuth identities, and sessions.
+- Averion's `users` table stores product profile data and organization membership.
+- `auth_user_id` links `users` to Supabase Auth without storing passwords.
+- Existing local development users can keep `auth_user_id` empty until real auth is used.
 
 ### documents
 
@@ -232,6 +245,7 @@ Stores human feedback for assistant answers.
 ## Recommended Indexes
 
 - `users(organization_id, email)`
+- `users(auth_user_id)` unique index for Supabase Auth profile lookup
 - `documents(organization_id, status)`
 - `document_chunks(document_id, chunk_index)`
 - `conversations(organization_id, user_id)`
@@ -249,5 +263,7 @@ Suggested default records:
 Organization: Averion Demo
 User: demo@averion.local
 ```
+
+For databases created before issue 36, run [supabase_auth_profile_migration.sql](supabase_auth_profile_migration.sql) to add the auth profile mapping columns.
 
 Later issues can turn this design into migrations and SQLAlchemy models. This issue only defines the schema contract.
