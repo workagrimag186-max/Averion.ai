@@ -10,6 +10,7 @@ Use these labels first, then create the issues in the order below.
 | `area:backend` | `5319E7` | API, database, and server logic |
 | `area:ai-ml` | `0E8A16` | RAG, embeddings, NLP, model work |
 | `area:database` | `FBCA04` | Schema, migrations, and stored metadata |
+| `area:auth` | `5319E7` | Login, signup, sessions, protected routes, and account access |
 | `area:devops` | `C5DEF5` | CI, environment, deployment |
 | `area:docs` | `0075CA` | README, planning, onboarding |
 | `type:feature` | `A2EEEF` | New user-facing or developer-facing capability |
@@ -34,6 +35,7 @@ Use these labels first, then create the issues in the order below.
 5. `M3 - RAG Chat`
 6. `M4 - Citations and Feedback`
 7. `M5 - Demo-Ready Product`
+8. `M6 - Authentication and Account System`
 
 ## Issue Creation Order
 
@@ -660,6 +662,225 @@ Acceptance criteria:
 - Supabase connection string handling is documented without exposing secrets.
 
 Depends on: milestone 4.
+
+## M6 - Authentication and Account System
+
+Auth should be added after the core document, chat, citation, and feedback flow exists. Averion already has Supabase, organizations, and users in the database, so the safest path is to use Supabase Auth instead of building password hashing and session management manually.
+
+Recommended auth scope:
+
+- Email/password signup.
+- Email/password signin.
+- Email verification through Supabase.
+- Google signin for Gmail/Google users.
+- Normal email format validation for all email/password users.
+- Optional Gmail-only allowlist later if the product truly needs it.
+- Protected app routes.
+- Logout.
+- Account/profile page.
+- Authenticated user and organization context in the backend.
+
+Implementation note:
+
+Do not commit real Supabase keys, service keys, or `.env` files. Only update `.env.example` files and setup docs.
+
+### 35. Configure Supabase Auth for Averion
+
+Labels: `type:task`, `area:auth`, `area:database`, `priority:p0`, `owner:shared`
+
+Description:
+
+Enable Supabase Auth for the project and document the required local environment variables.
+
+Acceptance criteria:
+
+- Supabase email/password auth provider is enabled.
+- Email verification behavior is decided and documented.
+- Google provider setup is documented, even if implementation happens in a later issue.
+- Frontend env example includes Supabase URL and anon key.
+- Backend env example includes Supabase project/JWT settings needed to validate users.
+- Setup docs explain where to find the Supabase values.
+- Real `.env` files remain ignored by Git.
+
+Depends on: issue 34.
+
+### 36. Add auth database profile mapping
+
+Labels: `type:task`, `area:auth`, `area:database`, `area:backend`, `priority:p0`, `owner:shared`
+
+Description:
+
+Connect Supabase Auth identities to Averion's existing `users` profile table and organization model.
+
+Acceptance criteria:
+
+- Existing `users` table is extended safely for auth profile data.
+- User profile records can be linked to Supabase Auth users.
+- Profile data supports email, display name, role, organization, and optional account fields.
+- New authenticated users can be mapped to an organization.
+- Existing development organization flow is not broken during local testing.
+- Schema docs are updated.
+
+Suggested profile fields:
+
+- `auth_user_id`
+- `email`
+- `name`
+- `role`
+- `organization_id`
+- `avatar_url`
+- `job_title`
+
+Depends on: issue 35.
+
+### 37. Build signup and signin pages
+
+Labels: `type:feature`, `area:auth`, `area:frontend`, `priority:p0`, `owner:web`
+
+Description:
+
+Create user-facing signup and signin pages for email/password auth.
+
+Acceptance criteria:
+
+- `/signup` page exists.
+- `/login` page exists.
+- Email format validation is present.
+- Password validation is present.
+- Loading, success, and error states are shown clearly.
+- Signup tells the user to verify their email if email confirmation is enabled.
+- Logged-in users are not encouraged to sign in again.
+- Existing app pages still build and render.
+
+Depends on: issue 35.
+
+### 38. Add Google and Gmail signin
+
+Labels: `type:feature`, `area:auth`, `area:frontend`, `priority:p1`, `owner:web`
+
+Description:
+
+Add Google OAuth signin so Gmail/Google users can enter the app without email/password.
+
+Acceptance criteria:
+
+- Login page has a "Continue with Google" action.
+- Signup page has a "Continue with Google" action.
+- OAuth callback route works locally.
+- Google user email is stored in the user profile.
+- Auth errors are shown clearly.
+- If Gmail-only mode is later enabled, non-Gmail users are blocked with a helpful message.
+
+Depends on: issues 35 and 37.
+
+### 39. Protect app routes and add logout
+
+Labels: `type:feature`, `area:auth`, `area:frontend`, `priority:p0`, `owner:web`
+
+Description:
+
+Require a valid session before users can access the product pages.
+
+Acceptance criteria:
+
+- `/`, `/documents`, `/chat`, and `/account` require login.
+- Logged-out users are redirected to `/login`.
+- Logged-in users are redirected away from `/login` and `/signup`.
+- Header shows an account/profile entry.
+- Logout clears the session.
+- Session persists after browser refresh.
+
+Depends on: issue 37.
+
+### 40. Add backend auth context
+
+Labels: `type:feature`, `area:auth`, `area:backend`, `priority:p0`, `owner:shared`
+
+Description:
+
+Replace the temporary development-only organization helper with authenticated user and organization context.
+
+Acceptance criteria:
+
+- Frontend sends the Supabase access token to FastAPI requests.
+- Backend validates the access token.
+- Backend resolves the current user id and organization id.
+- Existing `get_current_organization_id()` path is upgraded or replaced cleanly.
+- Documents, chat, and feedback endpoints can depend on authenticated context.
+- Local development fallback is explicit and documented.
+
+Depends on: issues 36 and 39.
+
+### 41. Connect documents, chat, and feedback to logged-in users
+
+Labels: `type:feature`, `area:auth`, `area:backend`, `area:database`, `priority:p1`, `owner:shared`
+
+Description:
+
+Store real user ownership for the main product actions.
+
+Acceptance criteria:
+
+- Uploaded documents store `uploaded_by_user_id`.
+- New conversations store `user_id`.
+- Feedback stores authenticated `user_id`.
+- Users only see documents from their organization.
+- Users cannot access another organization's conversations or documents.
+- Existing upload, chat, citation, and feedback tests are updated as needed.
+
+Depends on: issue 40.
+
+### 42. Build account and profile page
+
+Labels: `type:feature`, `area:auth`, `area:frontend`, `area:database`, `priority:p1`, `owner:web`
+
+Description:
+
+Create an account/profile screen where users can see and update basic profile information.
+
+Acceptance criteria:
+
+- `/account` or `/settings/profile` page exists.
+- Page shows email, display name, role, and organization.
+- User can edit display name.
+- User can edit optional job title if that field is added.
+- Email is read-only for the MVP.
+- Logout is available from the account area.
+- Empty/loading/error states are handled.
+
+Depends on: issues 39 and 41.
+
+### 43. Add auth tests and documentation
+
+Labels: `type:test`, `area:auth`, `area:docs`, `priority:p1`, `owner:shared`
+
+Description:
+
+Add verification coverage and beginner-friendly setup docs for authentication.
+
+Acceptance criteria:
+
+- Frontend build/typecheck passes.
+- Backend tests cover missing/invalid auth behavior.
+- Backend tests cover authenticated organization scoping.
+- Docs explain Supabase Auth setup.
+- Docs explain local `.env` updates.
+- Manual test checklist covers signup, login, Google signin, logout, upload, chat, and feedback.
+- Tests do not require committing real auth secrets.
+
+Depends on: issues 35 through 42.
+
+Recommended implementation order:
+
+1. Issue 35.
+2. Issue 36.
+3. Issue 37.
+4. Issue 39.
+5. Issue 40.
+6. Issue 41.
+7. Issue 38.
+8. Issue 42.
+9. Issue 43.
 
 ## How To Add Your Friend As Collaborator
 
