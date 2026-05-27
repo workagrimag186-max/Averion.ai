@@ -77,9 +77,14 @@ Copy the JWT secret into `apps/api/.env`:
 ```env
 SUPABASE_URL=your_project_url
 SUPABASE_JWT_SECRET=your_jwt_secret
+AUTH_REQUIRED=false
 ```
 
 The JWT secret must stay server-side only. Never put it in `apps/web/.env.local`, frontend code, screenshots, GitHub issues, or pull request descriptions.
+
+`AUTH_REQUIRED=false` keeps local development forgiving while you are wiring the
+frontend and backend together. When set to `true`, FastAPI rejects requests that
+do not include a valid Supabase bearer token.
 
 ## Step 5: Apply Profile Mapping Migration
 
