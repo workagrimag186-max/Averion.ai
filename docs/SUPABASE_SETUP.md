@@ -1,6 +1,7 @@
 # Supabase Setup
 
 This guide covers S1: creating the Supabase project and applying the Averion.ai MVP schema.
+For login, signup, Google signin, and account setup, use [Supabase Auth Setup](AUTH_SETUP.md).
 
 Supabase is used as the PostgreSQL database for structured product data:
 
