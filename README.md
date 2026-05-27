@@ -87,6 +87,7 @@ This is called RAG: Retrieval-Augmented Generation. We are not training the LLM 
 - [Database Schema](docs/DATABASE_SCHEMA.md)
 - [Supabase Setup](docs/SUPABASE_SETUP.md)
 - [Supabase Auth Setup](docs/AUTH_SETUP.md)
+- [Auth Manual Test Checklist](docs/AUTH_MANUAL_TEST_CHECKLIST.md)
 
 ## Repository Structure
 

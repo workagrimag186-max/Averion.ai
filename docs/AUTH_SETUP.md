@@ -1,14 +1,12 @@
 # Supabase Auth Setup
 
-This guide covers issue 35: preparing Averion.ai for login, signup, Google signin, and account/profile work.
+This guide covers the auth setup introduced across issues 35 through 43: login, signup, Google signin, protected routes, backend token validation, user-owned data, and account/profile work.
 
 Supabase Auth should be used for authentication because Averion already uses Supabase Postgres for product data. Do not build password hashing, email verification, or OAuth flows manually.
 
 ## Auth Scope
 
-Issue 35 only prepares configuration and documentation. Later issues implement the pages, protected routes, backend validation, and profile updates.
-
-Planned auth features:
+Implemented MVP auth features:
 
 - Email/password signup.
 - Email/password signin.
@@ -171,14 +169,41 @@ Ignored real files:
 - `apps/web/.env.local`
 - `apps/api/.env`
 
-## Issue 35 Completion Checklist
+## Automated Verification
 
-Before closing issue 35:
+Run backend tests from the API folder:
+
+```bash
+cd apps/api
+source .venv/bin/activate
+pytest tests
+```
+
+Run frontend checks from the web folder:
+
+```bash
+cd apps/web
+npm run lint
+npm run typecheck
+npm run build
+```
+
+The automated auth tests use fake JWT secrets and fake tokens. They do not require real Supabase credentials and must not commit real auth secrets.
+
+For end-to-end manual testing, use [Auth Manual Test Checklist](AUTH_MANUAL_TEST_CHECKLIST.md).
+
+## Completion Checklist
+
+Before closing auth setup or verification issues:
 
 - Email auth provider is enabled in Supabase.
 - Email confirmation choice is documented.
 - Local callback URL is configured in Supabase.
 - `apps/web/.env.example` lists public auth variables.
 - `apps/api/.env.example` lists server auth variables.
+- Backend tests cover missing, invalid, expired, and misconfigured auth.
+- Backend tests cover authenticated organization scoping.
+- Frontend lint, typecheck, and build pass.
+- Manual auth checklist is complete for signup, login, Google signin, logout, upload, chat, and feedback.
 - Real `.env` files are not shown in `git status`.
 - No Supabase secrets are committed.

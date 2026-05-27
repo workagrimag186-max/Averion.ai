@@ -158,6 +158,36 @@ def test_list_documents_returns_database_documents(monkeypatch) -> None:
     ]
 
 
+def test_list_documents_uses_authenticated_organization_scope(monkeypatch) -> None:
+    captured_scope = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000777",
+            user_id="00000000-0000-0000-0000-000000000901",
+            auth_user_id="00000000-0000-0000-0000-000000000902",
+            email="teammate@example.com",
+            role="member",
+            is_authenticated=True
+        )
+
+    def fake_list_documents(organization_id: str) -> list[DocumentListRecord]:
+        captured_scope["organization_id"] = organization_id
+        return []
+
+    monkeypatch.setattr("app.api.documents.list_documents", fake_list_documents)
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.get("/documents")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert captured_scope["organization_id"] == "00000000-0000-0000-0000-000000000777"
+
+
 def test_list_documents_returns_503_when_database_is_not_configured(monkeypatch) -> None:
     def fake_list_documents(organization_id: str) -> list[DocumentListRecord]:
         raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")

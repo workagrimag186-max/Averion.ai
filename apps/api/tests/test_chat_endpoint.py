@@ -174,6 +174,59 @@ def test_chat_endpoint_stores_authenticated_user_id(monkeypatch) -> None:
     assert stored_payload["user_id"] == "00000000-0000-0000-0000-000000000911"
 
 
+def test_chat_endpoint_uses_authenticated_organization_scope(monkeypatch) -> None:
+    captured_retrieval_scope = {}
+    captured_store_scope = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000778",
+            user_id="00000000-0000-0000-0000-000000000911",
+            auth_user_id="00000000-0000-0000-0000-000000000912",
+            email="teammate@example.com",
+            role="member",
+            is_authenticated=True
+        )
+
+    def fake_retrieve_chunks(query: str, top_k: int, organization_id: str) -> list[dict]:
+        captured_retrieval_scope["organization_id"] = organization_id
+        return []
+
+    def fake_store_chat_exchange(**kwargs) -> StoredChatMessages:
+        captured_store_scope["organization_id"] = kwargs["organization_id"]
+        captured_store_scope["user_id"] = kwargs["user_id"]
+        return StoredChatMessages(
+            conversation_id="conv_auth_scope",
+            user_message_id="msg_user_auth_scope",
+            assistant_message_id="msg_assistant_auth_scope"
+        )
+
+    monkeypatch.setattr("app.api.chat.retrieve_chunks", fake_retrieve_chunks)
+    monkeypatch.setattr("app.api.chat.build_rag_prompt", lambda question, chunks: "prompt")
+    monkeypatch.setattr("app.api.chat.generate_answer", lambda prompt, chunks=None: "answer")
+    monkeypatch.setattr("app.api.chat.store_chat_exchange", fake_store_chat_exchange)
+
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.post(
+            "/chat",
+            json={
+                "conversation_id": None,
+                "question": "Hello?"
+            }
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert captured_retrieval_scope["organization_id"] == "00000000-0000-0000-0000-000000000778"
+    assert captured_store_scope == {
+        "organization_id": "00000000-0000-0000-0000-000000000778",
+        "user_id": "00000000-0000-0000-0000-000000000911"
+    }
+
+
 def test_chat_endpoint_returns_500_for_llm_provider_error(monkeypatch) -> None:
     monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id: [])
     monkeypatch.setattr("app.api.chat.build_rag_prompt", lambda question, chunks: "prompt")
