@@ -80,6 +80,14 @@ AUTH_REQUIRED=false
 
 The JWT secret must stay server-side only. Never put it in `apps/web/.env.local`, frontend code, screenshots, GitHub issues, or pull request descriptions.
 
+Newer Supabase projects may use JWT Signing Keys such as `ECC (P-256)` instead
+of signing new user tokens with the legacy shared secret. Averion supports both:
+
+- Asymmetric tokens use `SUPABASE_URL` to load public keys from the Supabase JWKS endpoint.
+- Legacy `HS256` tokens use `SUPABASE_JWT_SECRET`.
+
+Keep both values in `apps/api/.env` during local development.
+
 `AUTH_REQUIRED=false` keeps local development forgiving while you are wiring the
 frontend and backend together. When set to `true`, FastAPI rejects requests that
 do not include a valid Supabase bearer token.

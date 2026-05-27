@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta, timezone
+import json
+from base64 import urlsafe_b64encode
 
 import jwt
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from jwt.exceptions import PyJWKClientConnectionError
 
 from app.core.auth import get_request_context
 from app.core.config import settings
@@ -31,16 +34,41 @@ def _token(secret: str, **claims) -> str:
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
+def _fake_token_with_algorithm(algorithm: str) -> str:
+    header = {
+        "alg": algorithm,
+        "kid": "test-key-id",
+        "typ": "JWT"
+    }
+    payload = {
+        "sub": "00000000-0000-0000-0000-000000000701",
+        "email": "teammate@example.com",
+        "aud": "authenticated",
+        "exp": int((datetime.now(timezone.utc) + timedelta(minutes=15)).timestamp())
+    }
+
+    encoded_header = urlsafe_b64encode(json.dumps(header).encode()).rstrip(b"=")
+    encoded_payload = urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b"=")
+    encoded_signature = urlsafe_b64encode(b"signature").rstrip(b"=")
+    return (
+        f"{encoded_header.decode()}."
+        f"{encoded_payload.decode()}."
+        f"{encoded_signature.decode()}"
+    )
+
+
 @pytest.fixture(autouse=True)
 def restore_auth_settings():
     original_auth_required = settings.auth_required
     original_jwt_secret = settings.supabase_jwt_secret
+    original_supabase_url = settings.supabase_url
     original_domains = settings.allowed_email_domains
 
     yield
 
     settings.auth_required = original_auth_required
     settings.supabase_jwt_secret = original_jwt_secret
+    settings.supabase_url = original_supabase_url
     settings.allowed_email_domains = original_domains
 
 
@@ -109,6 +137,86 @@ def test_request_context_builds_authenticated_context_without_database(monkeypat
     assert context.auth_user_id == "00000000-0000-0000-0000-000000000701"
     assert context.email == "teammate@example.com"
     assert context.is_authenticated is True
+
+
+def test_request_context_verifies_asymmetric_token_with_jwks(monkeypatch) -> None:
+    settings.auth_required = False
+    settings.supabase_url = "https://project-ref.supabase.co"
+    token = _fake_token_with_algorithm("ES256")
+    captured = {}
+
+    def fake_decode_asymmetric_supabase_token(token_value: str, algorithm: str):
+        captured["token"] = token_value
+        captured["algorithm"] = algorithm
+        return {
+            "sub": "00000000-0000-0000-0000-000000000701",
+            "email": "teammate@example.com",
+            "aud": "authenticated",
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=15)
+        }
+
+    monkeypatch.setattr("app.core.auth.is_database_configured", lambda: False)
+    monkeypatch.setattr(
+        "app.core.auth._decode_asymmetric_supabase_token",
+        fake_decode_asymmetric_supabase_token
+    )
+
+    context = get_request_context(authorization=f"Bearer {token}")
+
+    assert captured == {
+        "token": token,
+        "algorithm": "ES256"
+    }
+    assert context.auth_user_id == "00000000-0000-0000-0000-000000000701"
+    assert context.email == "teammate@example.com"
+    assert context.is_authenticated is True
+
+
+def test_request_context_requires_supabase_url_for_asymmetric_tokens() -> None:
+    settings.auth_required = True
+    settings.supabase_url = None
+    token = _fake_token_with_algorithm("ES256")
+
+    response = client.get(
+        "/documents",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "SUPABASE_URL is not configured."}
+
+
+def test_request_context_returns_503_when_jwks_fetch_fails(monkeypatch) -> None:
+    settings.auth_required = True
+    settings.supabase_url = "https://project-ref.supabase.co"
+    token = _fake_token_with_algorithm("ES256")
+
+    def fake_decode_asymmetric_supabase_token(token_value: str, algorithm: str):
+        raise PyJWKClientConnectionError("certificate verification failed")
+
+    monkeypatch.setattr(
+        "app.core.auth._decode_asymmetric_supabase_token",
+        fake_decode_asymmetric_supabase_token
+    )
+
+    response = client.get(
+        "/documents",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Could not fetch Supabase signing keys."}
+
+
+def test_request_context_rejects_unsupported_token_algorithm() -> None:
+    settings.supabase_jwt_secret = TEST_SECRET
+    token = _fake_token_with_algorithm("none")
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_request_context(authorization=f"Bearer {token}")
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Unsupported authentication token algorithm."
 
 
 def test_request_context_creates_profile_when_database_is_configured(monkeypatch) -> None:

@@ -1,7 +1,11 @@
 from dataclasses import dataclass
+import ssl
 from typing import Annotated, Any
 
+import certifi
 import jwt
+from jwt.exceptions import PyJWKClientConnectionError, PyJWKClientError
+from jwt import PyJWKClient
 from fastapi import Header, HTTPException, status
 
 from app.core.config import settings
@@ -26,6 +30,10 @@ class RequestContext:
 
 class AuthConfigurationError(RuntimeError):
     pass
+
+
+ASYMMETRIC_JWT_ALGORITHMS = {"ES256", "RS256"}
+LEGACY_JWT_ALGORITHMS = {"HS256"}
 
 
 def _development_context() -> RequestContext:
@@ -54,21 +62,92 @@ def _extract_bearer_token(authorization: str | None) -> str | None:
     return token.strip()
 
 
-def _decode_supabase_token(token: str) -> dict[str, Any]:
+def _get_token_algorithm(token: str) -> str:
+    try:
+        header = jwt.get_unverified_header(token)
+    except jwt.InvalidTokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token."
+        ) from exc
+
+    algorithm = str(header.get("alg") or "").strip()
+
+    if not algorithm:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token."
+        )
+
+    return algorithm
+
+
+def _get_supabase_jwks_url() -> str:
+    if not settings.supabase_url:
+        raise AuthConfigurationError("SUPABASE_URL is not configured.")
+
+    return f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+
+
+def _get_jwks_ssl_context() -> ssl.SSLContext:
+    return ssl.create_default_context(cafile=certifi.where())
+
+
+def _decode_legacy_supabase_token(token: str) -> dict[str, Any]:
     if not settings.supabase_jwt_secret:
         raise AuthConfigurationError("SUPABASE_JWT_SECRET is not configured.")
 
+    return jwt.decode(
+        token,
+        settings.supabase_jwt_secret,
+        algorithms=["HS256"],
+        audience="authenticated"
+    )
+
+
+def _decode_asymmetric_supabase_token(token: str, algorithm: str) -> dict[str, Any]:
+    jwks_client = PyJWKClient(
+        _get_supabase_jwks_url(),
+        ssl_context=_get_jwks_ssl_context()
+    )
+    signing_key = jwks_client.get_signing_key_from_jwt(token)
+
+    return jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=[algorithm],
+        audience="authenticated"
+    )
+
+
+def _decode_supabase_token(token: str) -> dict[str, Any]:
+    algorithm = _get_token_algorithm(token)
+
     try:
-        return jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated"
+        if algorithm in ASYMMETRIC_JWT_ALGORITHMS:
+            return _decode_asymmetric_supabase_token(token, algorithm)
+
+        if algorithm in LEGACY_JWT_ALGORITHMS:
+            return _decode_legacy_supabase_token(token)
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unsupported authentication token algorithm."
         )
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication token has expired."
+        ) from exc
+    except PyJWKClientConnectionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not fetch Supabase signing keys."
+        ) from exc
+    except PyJWKClientError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token."
         ) from exc
     except jwt.InvalidTokenError as exc:
         raise HTTPException(
