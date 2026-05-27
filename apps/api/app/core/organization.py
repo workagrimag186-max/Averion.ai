@@ -1,13 +1,16 @@
-from app.core.config import settings
+from fastapi import Depends
+
+from app.core.auth import RequestContext, get_request_context
 
 
-def get_current_organization_id() -> str:
+def get_current_organization_id(
+    context: RequestContext = Depends(get_request_context)
+) -> str:
     """
     Return the organization scope for the current request.
 
-    The MVP does not have authentication yet, so every request is scoped to the
-    development organization from DEFAULT_ORGANIZATION_ID. Keeping this in one
-    helper makes the temporary path easy to replace when auth lands.
+    Authenticated requests use the organization resolved from the bearer token
+    and Averion profile. Local development can still fall back to the default
+    organization while AUTH_REQUIRED is false.
     """
-    return settings.default_organization_id
-
+    return context.organization_id

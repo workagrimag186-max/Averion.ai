@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_jwt_secret: str | None = None
     allowed_email_domains: str = ""
+    auth_required: bool = False
     upload_dir: str = "./uploads"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     vector_db_path: str = "./vector_store"

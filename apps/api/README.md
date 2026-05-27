@@ -80,6 +80,7 @@ DEFAULT_ORGANIZATION_ID
 SUPABASE_URL
 SUPABASE_JWT_SECRET
 ALLOWED_EMAIL_DOMAINS
+AUTH_REQUIRED
 UPLOAD_DIR
 CORS_ORIGINS
 VECTOR_DB_PATH
@@ -93,16 +94,22 @@ Real `.env` files must stay local and must not be committed to Git.
 The Supabase auth variables are prepared for the upcoming authentication issues.
 See [Supabase Auth Setup](../../docs/AUTH_SETUP.md) before filling them in.
 
-## Organization Scope
+## Organization And Auth Scope
 
-The MVP does not have authentication or organization switching yet. Until that
-exists, every API request is scoped through
-`app.core.organization.get_current_organization_id()`, which currently returns
-`DEFAULT_ORGANIZATION_ID`.
+API requests can include a Supabase access token:
 
-This temporary development path is intentionally isolated in one helper so it
-can be replaced later by auth/session-based organization lookup. Documents,
-conversations, and vector retrieval all use this organization scope.
+```http
+Authorization: Bearer <supabase-access-token>
+```
+
+The backend validates the token with `SUPABASE_JWT_SECRET`, maps the Supabase
+Auth user to an Averion `users` profile, and resolves the organization scope
+from that profile. Documents, conversations, and vector retrieval all use this
+organization scope.
+
+For local development, `AUTH_REQUIRED=false` keeps the old
+`DEFAULT_ORGANIZATION_ID` fallback when no bearer token is sent. Set
+`AUTH_REQUIRED=true` when you want the API to reject unauthenticated requests.
 
 ## Current API
 

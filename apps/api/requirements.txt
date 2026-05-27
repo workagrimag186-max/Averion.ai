@@ -8,3 +8,4 @@ chromadb
 PyPDF2
 python-docx
 openai
+PyJWT==2.13.0

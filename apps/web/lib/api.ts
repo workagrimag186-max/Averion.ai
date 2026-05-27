@@ -1,5 +1,21 @@
+import { getSupabaseBrowserClient } from "@/lib/supabase";
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const supabase = getSupabaseBrowserClient();
+
+  if (!supabase) {
+    return {};
+  }
+
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 
 export type DocumentUploadResponse = {
@@ -72,10 +88,12 @@ export type FeedbackResponse = {
 
 
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
+  const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/chat`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...authHeaders
     },
     body: JSON.stringify(request)
   });
@@ -95,10 +113,12 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
 
 
 export async function submitFeedback(request: FeedbackDraft): Promise<FeedbackResponse> {
+  const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/feedback`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...authHeaders
     },
     body: JSON.stringify(request)
   });
@@ -118,8 +138,10 @@ export async function submitFeedback(request: FeedbackDraft): Promise<FeedbackRe
 
 
 export async function listDocuments(): Promise<DocumentListItem[]> {
+  const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/documents`, {
     method: "GET",
+    headers: authHeaders,
     cache: "no-store"
   });
 
@@ -140,9 +162,11 @@ export async function listDocuments(): Promise<DocumentListItem[]> {
 export async function uploadDocument(file: File): Promise<DocumentUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  const authHeaders = await getAuthHeaders();
 
   const response = await fetch(`${API_BASE_URL}/documents/upload`, {
     method: "POST",
+    headers: authHeaders,
     body: formData
   });
 
