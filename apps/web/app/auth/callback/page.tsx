@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import {
+  buildAllowedDomainError,
+  getAllowedEmailDomains,
+  isEmailDomainAllowed
+} from "@/lib/auth-validation";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 export default function AuthCallbackPage() {
@@ -33,6 +38,19 @@ export default function AuthCallbackPage() {
       }
 
       if (data.session) {
+        const userEmail = data.session.user.email ?? "";
+        const allowedDomains = getAllowedEmailDomains();
+
+        if (!isEmailDomainAllowed(userEmail, allowedDomains)) {
+          await supabase.auth.signOut();
+
+          if (!ignore) {
+            setMessage(buildAllowedDomainError(allowedDomains));
+          }
+
+          return;
+        }
+
         router.replace("/");
         return;
       }

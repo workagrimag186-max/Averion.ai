@@ -108,18 +108,42 @@ ALLOWED_EMAIL_DOMAINS=gmail.com,googlemail.com
 
 The frontend value gives users quick validation feedback. The backend value is the real enforcement point and must be checked before trusting account access.
 
-## Step 7: Google Signin Planning
+## Step 7: Configure Google Signin
 
-Google signin is implemented in a later issue, but setup should be planned now.
+Issue 38 adds the "Continue with Google" button to the login and signup pages. Supabase still needs dashboard configuration before the button can complete the OAuth flow.
 
-Supabase will need:
+### In Supabase
 
-- Google provider enabled.
-- Google OAuth client id.
-- Google OAuth client secret.
-- Supabase callback URL added inside the Google Cloud OAuth app.
+1. Open your Supabase project.
+2. Go to `Authentication` -> `Providers`.
+3. Open `Google`.
+4. Enable the Google provider.
+5. Paste your Google OAuth client id.
+6. Paste your Google OAuth client secret.
+7. Save the provider settings.
+
+Copy the callback URL shown by Supabase in the Google provider screen. You need it in Google Cloud.
+
+### In Google Cloud
+
+1. Open Google Cloud Console.
+2. Create or select a project.
+3. Configure the OAuth consent screen.
+4. Create an OAuth client id for a web application.
+5. Add this authorized JavaScript origin:
+
+```text
+http://localhost:3000
+```
+
+6. Add the Supabase callback URL as an authorized redirect URI.
+7. Copy the client id and client secret back into Supabase.
+
+For production, also add your deployed frontend URL as an authorized origin and make sure Supabase has the deployed redirect URL.
 
 Do not add Google secrets to Git.
+
+If `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS` is set, the auth callback signs out Google users whose email domain is not allowed.
 
 ## Local Env Files
 

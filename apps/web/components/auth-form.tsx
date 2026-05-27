@@ -49,6 +49,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOAuthSubmitting, setIsOAuthSubmitting] = useState(false);
   const [status, setStatus] = useState<FormStatus>({
     kind: "idle",
     message: ""
@@ -162,6 +163,38 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
+  async function handleGoogleSignIn() {
+    if (!supabase) {
+      setStatus({
+        kind: "error",
+        message: "Supabase auth is not configured yet. Add the frontend Supabase env values first."
+      });
+      return;
+    }
+
+    setIsOAuthSubmitting(true);
+    setStatus({ kind: "idle", message: "" });
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: getAuthRedirectUrl(),
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent"
+        }
+      }
+    });
+
+    if (error) {
+      setIsOAuthSubmitting(false);
+      setStatus({
+        kind: "error",
+        message: error.message
+      });
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6 lg:px-8">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center justify-center">
@@ -214,6 +247,29 @@ export function AuthForm({ mode }: AuthFormProps) {
                 <p className="mt-3 text-sm leading-6 text-slate-600">
                   {formCopy.description}
                 </p>
+              </div>
+
+              <button
+                className="mt-8 flex w-full items-center justify-center gap-3 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isSubmitting || isOAuthSubmitting}
+                onClick={handleGoogleSignIn}
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-bold text-blue-600"
+                >
+                  G
+                </span>
+                {isOAuthSubmitting ? "Opening Google..." : "Continue with Google"}
+              </button>
+
+              <div className="mt-6 flex items-center gap-3">
+                <span className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                  or
+                </span>
+                <span className="h-px flex-1 bg-slate-200" />
               </div>
 
               <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
@@ -289,7 +345,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
                 <button
                   className="w-full rounded-md bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isOAuthSubmitting}
                   type="submit"
                 >
                   {isSubmitting ? formCopy.pending : formCopy.button}
