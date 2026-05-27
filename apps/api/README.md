@@ -102,10 +102,13 @@ API requests can include a Supabase access token:
 Authorization: Bearer <supabase-access-token>
 ```
 
-The backend validates the token with `SUPABASE_JWT_SECRET`, maps the Supabase
-Auth user to an Averion `users` profile, and resolves the organization scope
-from that profile. Documents, conversations, and vector retrieval all use this
-organization scope.
+The backend validates Supabase access tokens with the current JWT signing key
+system. Tokens signed with asymmetric signing keys are verified through the
+project JWKS endpoint derived from `SUPABASE_URL`. Legacy `HS256` tokens are
+still verified with `SUPABASE_JWT_SECRET`. After validation, the backend maps
+the Supabase Auth user to an Averion `users` profile and resolves the
+organization scope from that profile. Documents, conversations, and vector
+retrieval all use this organization scope.
 
 When a request is authenticated:
 

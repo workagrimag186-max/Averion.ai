@@ -9,3 +9,5 @@ PyPDF2
 python-docx
 openai
 PyJWT==2.13.0
+cryptography==46.0.3
+certifi==2026.04.22
