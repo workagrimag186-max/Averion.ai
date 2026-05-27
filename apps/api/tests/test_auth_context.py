@@ -82,6 +82,20 @@ def test_request_context_rejects_invalid_token() -> None:
     assert exc_info.value.detail == "Invalid authentication token."
 
 
+def test_request_context_rejects_expired_token() -> None:
+    settings.supabase_jwt_secret = TEST_SECRET
+    token = _token(
+        settings.supabase_jwt_secret,
+        exp=datetime.now(timezone.utc) - timedelta(minutes=1)
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_request_context(authorization=f"Bearer {token}")
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Authentication token has expired."
+
+
 def test_request_context_builds_authenticated_context_without_database(monkeypatch) -> None:
     settings.auth_required = False
     settings.supabase_jwt_secret = TEST_SECRET
@@ -161,3 +175,30 @@ def test_documents_route_rejects_missing_token_when_auth_required() -> None:
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Authentication required."}
+
+
+def test_documents_route_rejects_invalid_token_when_auth_required() -> None:
+    settings.auth_required = True
+    settings.supabase_jwt_secret = TEST_SECRET
+
+    response = client.get(
+        "/documents",
+        headers={"Authorization": "Bearer not-a-jwt"}
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid authentication token."}
+
+
+def test_documents_route_returns_503_when_jwt_secret_is_missing() -> None:
+    settings.auth_required = True
+    settings.supabase_jwt_secret = None
+    token = _token(TEST_SECRET)
+
+    response = client.get(
+        "/documents",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "SUPABASE_JWT_SECRET is not configured."}
