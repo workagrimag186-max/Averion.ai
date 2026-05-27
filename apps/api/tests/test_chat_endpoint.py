@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.core.auth import RequestContext, get_request_context
 from app.core.config import settings
 from app.db.chat import ConversationNotFoundError, StoredChatMessages
 from app.db.documents import DatabaseNotConfiguredError
@@ -89,6 +90,7 @@ def test_chat_endpoint_returns_answer_and_stores_messages(monkeypatch) -> None:
     }
     assert stored_payload["conversation_id"] is None
     assert stored_payload["organization_id"] == settings.default_organization_id
+    assert stored_payload["user_id"] is None
     assert stored_payload["question"] == "What is the refund policy?"
     assert stored_payload["answer"] == "Refunds are available within 30 days."
     assert stored_payload["citations"][0]["chunk_id"] == "doc_123:0"
@@ -126,6 +128,50 @@ def test_chat_endpoint_handles_no_retrieval_results(monkeypatch) -> None:
     assert response.json()["conversation_id"] == "conv_empty"
     assert response.json()["citations"] == []
     assert response.json()["answer"] == "I don't know based on the available documents."
+
+
+def test_chat_endpoint_stores_authenticated_user_id(monkeypatch) -> None:
+    stored_payload = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id=settings.default_organization_id,
+            user_id="00000000-0000-0000-0000-000000000911",
+            auth_user_id="00000000-0000-0000-0000-000000000912",
+            email="teammate@example.com",
+            role="member",
+            is_authenticated=True
+        )
+
+    def fake_store_chat_exchange(**kwargs) -> StoredChatMessages:
+        stored_payload.update(kwargs)
+        return StoredChatMessages(
+            conversation_id="conv_auth",
+            user_message_id="msg_user_auth",
+            assistant_message_id="msg_assistant_auth"
+        )
+
+    monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id: [])
+    monkeypatch.setattr("app.api.chat.build_rag_prompt", lambda question, chunks: "prompt")
+    monkeypatch.setattr("app.api.chat.generate_answer", lambda prompt, chunks=None: "answer")
+    monkeypatch.setattr("app.api.chat.store_chat_exchange", fake_store_chat_exchange)
+
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.post(
+            "/chat",
+            json={
+                "conversation_id": None,
+                "question": "Hello?"
+            }
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert stored_payload["organization_id"] == settings.default_organization_id
+    assert stored_payload["user_id"] == "00000000-0000-0000-0000-000000000911"
 
 
 def test_chat_endpoint_returns_500_for_llm_provider_error(monkeypatch) -> None:

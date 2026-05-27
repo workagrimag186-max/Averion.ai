@@ -10,6 +10,7 @@ from app.db.connection import is_database_configured
 class DocumentMetadataCreate:
     document_id: str
     organization_id: str
+    uploaded_by_user_id: str | None
     filename: str
     file_type: str
     storage_path: str
@@ -67,16 +68,18 @@ def create_document_metadata(metadata: DocumentMetadataCreate) -> None:
                 insert into documents (
                     id,
                     organization_id,
+                    uploaded_by_user_id,
                     filename,
                     file_type,
                     storage_path,
                     status
                 )
-                values (%s::uuid, %s::uuid, %s, %s, %s, %s)
+                values (%s::uuid, %s::uuid, %s::uuid, %s, %s, %s, %s)
                 """,
                 (
                     metadata.document_id,
                     metadata.organization_id,
+                    metadata.uploaded_by_user_id,
                     metadata.filename,
                     metadata.file_type,
                     metadata.storage_path,
