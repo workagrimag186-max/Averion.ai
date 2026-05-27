@@ -63,7 +63,7 @@ The Supabase variables are prepared for the upcoming auth issues. Fill them in f
 - `/chat` - chat area placeholder
 - `/login` - email/password sign in
 - `/signup` - email/password account creation
-- `/auth/callback` - Supabase auth redirect handler
+- `/auth/callback` - Supabase auth redirect handler for email verification and Google OAuth
 
 ## Upload Flow
 

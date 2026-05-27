@@ -21,15 +21,27 @@ export function validateEmail(email: string): string | null {
 
   const allowedDomains = getAllowedEmailDomains();
 
-  if (allowedDomains.length > 0) {
-    const domain = normalizedEmail.split("@").at(1);
-
-    if (!domain || !allowedDomains.includes(domain)) {
-      return `Use an approved email domain: ${allowedDomains.join(", ")}.`;
-    }
+  if (!isEmailDomainAllowed(normalizedEmail, allowedDomains)) {
+    return buildAllowedDomainError(allowedDomains);
   }
 
   return null;
+}
+
+export function isEmailDomainAllowed(
+  email: string,
+  allowedDomains = getAllowedEmailDomains()
+): boolean {
+  if (allowedDomains.length === 0) {
+    return true;
+  }
+
+  const domain = email.trim().toLowerCase().split("@").at(1);
+  return Boolean(domain && allowedDomains.includes(domain));
+}
+
+export function buildAllowedDomainError(allowedDomains = getAllowedEmailDomains()): string {
+  return `Use an approved email domain: ${allowedDomains.join(", ")}.`;
 }
 
 export function validatePassword(password: string): string | null {
