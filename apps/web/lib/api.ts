@@ -87,6 +87,25 @@ export type FeedbackResponse = {
 };
 
 
+export type AccountProfile = {
+  user_id: string | null;
+  organization_id: string;
+  organization_name: string | null;
+  auth_user_id: string | null;
+  email: string | null;
+  name: string | null;
+  avatar_url: string | null;
+  job_title: string | null;
+  role: string | null;
+};
+
+
+export type AccountProfileUpdate = {
+  name: string | null;
+  job_title: string | null;
+};
+
+
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
   const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -109,6 +128,55 @@ export async function sendChatMessage(request: ChatRequest): Promise<ChatRespons
   }
 
   return response.json() as Promise<ChatResponse>;
+}
+
+
+export async function getAccountProfile(): Promise<AccountProfile> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users/me`, {
+    method: "GET",
+    headers: authHeaders,
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not load account profile.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<AccountProfile>;
+}
+
+
+export async function updateAccountProfile(
+  request: AccountProfileUpdate
+): Promise<AccountProfile> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users/me`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders
+    },
+    body: JSON.stringify(request)
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not update account profile.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<AccountProfile>;
 }
 
 
