@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.core.auth import RequestContext, get_request_context
 from app.db.documents import DatabaseNotConfiguredError
 from app.db.feedback import (
     FeedbackCreate,
@@ -17,13 +18,17 @@ router = APIRouter(prefix="/feedback", tags=["feedback"])
     response_model=FeedbackResponse,
     status_code=status.HTTP_201_CREATED
 )
-def create_feedback(request: FeedbackRequest) -> FeedbackResponse:
+def create_feedback(
+    request: FeedbackRequest,
+    context: RequestContext = Depends(get_request_context)
+) -> FeedbackResponse:
     try:
         record = store_feedback(
             FeedbackCreate(
                 message_id=str(request.message_id),
                 rating=request.rating,
-                user_id=str(request.user_id) if request.user_id else None,
+                organization_id=context.organization_id,
+                user_id=context.user_id,
                 correction_text=request.correction_text
             )
         )
@@ -71,4 +76,3 @@ def get_feedback(
         )
         for record in records
     ]
-

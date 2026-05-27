@@ -39,6 +39,7 @@ def _ensure_development_organization(cursor) -> None:
 def store_chat_exchange(
     *,
     organization_id: str,
+    user_id: str | None,
     conversation_id: str | None,
     question: str,
     answer: str,
@@ -59,12 +60,13 @@ def store_chat_exchange(
             if conversation_id is None:
                 cursor.execute(
                     """
-                    insert into conversations (id, organization_id, title)
-                    values (%s::uuid, %s::uuid, %s)
+                    insert into conversations (id, organization_id, user_id, title)
+                    values (%s::uuid, %s::uuid, %s::uuid, %s)
                     """,
                     (
                         resolved_conversation_id,
                         organization_id,
+                        user_id,
                         question[:80]
                     )
                 )

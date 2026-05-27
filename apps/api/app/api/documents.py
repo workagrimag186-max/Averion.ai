@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
+from app.core.auth import RequestContext, get_request_context
 from app.core.organization import get_current_organization_id
 from app.core.config import settings
 from app.db.documents import DatabaseNotConfiguredError, list_documents
@@ -49,13 +50,14 @@ def get_documents(
 )
 async def upload_document(
     file: UploadFile = File(...),
-    organization_id: str = Depends(get_current_organization_id)
+    context: RequestContext = Depends(get_request_context)
 ) -> DocumentUploadResponse:
     try:
         return await save_uploaded_document(
             file=file,
             upload_dir=settings.upload_dir,
-            organization_id=organization_id
+            organization_id=context.organization_id,
+            uploaded_by_user_id=context.user_id
         )
     except UnsupportedDocumentTypeError as exc:
         raise HTTPException(

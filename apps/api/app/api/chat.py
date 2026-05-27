@@ -4,7 +4,7 @@ from app.ai.citation_mapper import build_citations
 from app.ai.llm_service import generate_answer
 from app.ai.prompt_builder import build_rag_prompt
 from app.ai.retrieval import retrieve_chunks
-from app.core.organization import get_current_organization_id
+from app.core.auth import RequestContext, get_request_context
 from app.core.config import settings
 from app.db.chat import ConversationNotFoundError, store_chat_exchange
 from app.db.documents import DatabaseNotConfiguredError
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 @router.post("", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
-    organization_id: str = Depends(get_current_organization_id)
+    context: RequestContext = Depends(get_request_context)
 ) -> ChatResponse:
     """
     Process a chat question and return an AI-generated answer with citations.
@@ -47,7 +47,7 @@ async def chat(
         chunks = retrieve_chunks(
             query=request.question,
             top_k=settings.retrieval_top_k,
-            organization_id=organization_id
+            organization_id=context.organization_id
         )
         
         # Debug: Log retrieved chunks count
@@ -72,7 +72,8 @@ async def chat(
         citations = [ChatCitation(**citation) for citation in citation_dicts]
 
         stored_messages = store_chat_exchange(
-            organization_id=organization_id,
+            organization_id=context.organization_id,
+            user_id=context.user_id,
             conversation_id=request.conversation_id,
             question=request.question.strip(),
             answer=answer,

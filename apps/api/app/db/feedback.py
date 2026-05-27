@@ -16,6 +16,7 @@ class FeedbackMessageNotFoundError(ValueError):
 class FeedbackCreate:
     message_id: str
     rating: FeedbackRating
+    organization_id: str
     user_id: str | None = None
     correction_text: str | None = None
 
@@ -38,14 +39,18 @@ def store_feedback(feedback: FeedbackCreate) -> FeedbackRecord:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                select id
+                select messages.id
                 from messages
-                where id = %s::uuid
-                    and role = %s
+                join conversations
+                    on conversations.id = messages.conversation_id
+                where messages.id = %s::uuid
+                    and messages.role = %s
+                    and conversations.organization_id = %s::uuid
                 """,
                 (
                     feedback.message_id,
-                    MessageRole.ASSISTANT.value
+                    MessageRole.ASSISTANT.value,
+                    feedback.organization_id
                 )
             )
 
@@ -127,4 +132,3 @@ def list_feedback(limit: int = 50) -> list[FeedbackRecord]:
                 )
                 for row in cursor.fetchall()
             ]
-

@@ -82,7 +82,8 @@ def _build_chunk_records(chunks: list[dict], document_id: str) -> list[DocumentC
 async def save_uploaded_document(
     file: UploadFile,
     upload_dir: str,
-    organization_id: str
+    organization_id: str,
+    uploaded_by_user_id: str | None = None
 ) -> DocumentUploadResponse:
     file_type = get_file_type(file.filename or "")
     document_id = str(uuid4())
@@ -104,6 +105,7 @@ async def save_uploaded_document(
                 DocumentMetadataCreate(
                     document_id=document_id,
                     organization_id=organization_id,
+                    uploaded_by_user_id=uploaded_by_user_id,
                     filename=filename,
                     file_type=file_type.value,
                     storage_path=str(storage_path),

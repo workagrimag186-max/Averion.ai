@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 import pytest
 
+from app.core.auth import RequestContext, get_request_context
 from app.core.config import settings
 from app.db.documents import DatabaseNotConfiguredError, DocumentListRecord
 from app.main import app
@@ -180,6 +181,7 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     def fake_create_document_metadata(metadata) -> None:
         stored_metadata["document_id"] = metadata.document_id
         stored_metadata["organization_id"] = metadata.organization_id
+        stored_metadata["uploaded_by_user_id"] = metadata.uploaded_by_user_id
         stored_metadata["filename"] = metadata.filename
         stored_metadata["file_type"] = metadata.file_type
         stored_metadata["status"] = metadata.status
@@ -241,6 +243,7 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     assert body["status"] == "ready"
     assert stored_metadata["document_id"] == body["document_id"]
     assert stored_metadata["organization_id"] == settings.default_organization_id
+    assert stored_metadata["uploaded_by_user_id"] is None
     assert stored_metadata["filename"] == "notes.txt"
     assert stored_metadata["file_type"] == "txt"
     assert stored_metadata["status"] == "uploaded"
@@ -249,6 +252,80 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     assert stored_chunks[0].text == "Company policy notes"
     assert stored_chunks[0].token_count == 3
     assert [update[1] for update in status_updates] == ["processing", "ready"]
+
+
+def test_upload_document_stores_authenticated_user_id(
+    tmp_path: Path,
+    monkeypatch
+) -> None:
+    stored_metadata = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id=settings.default_organization_id,
+            user_id="00000000-0000-0000-0000-000000000901",
+            auth_user_id="00000000-0000-0000-0000-000000000902",
+            email="teammate@example.com",
+            role="member",
+            is_authenticated=True
+        )
+
+    def fake_create_document_metadata(metadata) -> None:
+        stored_metadata["organization_id"] = metadata.organization_id
+        stored_metadata["uploaded_by_user_id"] = metadata.uploaded_by_user_id
+
+    monkeypatch.setattr(
+        "app.services.document_service.is_database_configured",
+        lambda: True
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.create_document_metadata",
+        fake_create_document_metadata
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.run_ingestion_pipeline",
+        lambda file_path, file_type, document_id: [
+            {
+                "document_id": document_id,
+                "chunk_index": 0,
+                "page_number": None,
+                "text": "Company policy notes"
+            }
+        ]
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.create_document_chunks",
+        lambda chunks: len(chunks)
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.generate_embeddings",
+        lambda chunks: chunks
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.store_embeddings",
+        lambda chunks: None
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.update_document_status",
+        lambda document_id, status, error_message=None: None
+    )
+
+    app.dependency_overrides[get_request_context] = fake_context
+    original_upload_dir = settings.upload_dir
+    settings.upload_dir = str(tmp_path)
+
+    try:
+        response = client.post(
+            "/documents/upload",
+            files={"file": ("notes.txt", b"Company policy notes", "text/plain")}
+        )
+    finally:
+        settings.upload_dir = original_upload_dir
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 201
+    assert stored_metadata["organization_id"] == settings.default_organization_id
+    assert stored_metadata["uploaded_by_user_id"] == "00000000-0000-0000-0000-000000000901"
 
 
 def test_upload_document_returns_503_when_metadata_storage_fails(

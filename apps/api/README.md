@@ -107,6 +107,13 @@ Auth user to an Averion `users` profile, and resolves the organization scope
 from that profile. Documents, conversations, and vector retrieval all use this
 organization scope.
 
+When a request is authenticated:
+
+- Uploaded documents store `uploaded_by_user_id`.
+- New conversations store `user_id`.
+- Feedback stores the authenticated `user_id`.
+- Feedback can only be attached to assistant messages inside the current organization.
+
 For local development, `AUTH_REQUIRED=false` keeps the old
 `DEFAULT_ORGANIZATION_ID` fallback when no bearer token is sent. Set
 `AUTH_REQUIRED=true` when you want the API to reject unauthenticated requests.
