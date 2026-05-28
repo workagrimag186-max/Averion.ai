@@ -92,13 +92,18 @@ Pass condition:
 3. Update display name.
 4. Update job title.
 5. Save the profile.
-6. Refresh the page.
-7. Click `Logout`.
+6. Confirm the team member list is visible.
+7. If the signed-in user is an owner, update the organization name.
+8. If another member exists, change that member's role and then change it back.
+9. Refresh the page.
+10. Click `Logout`.
 
 Pass condition:
 
 - Display name and job title persist after refresh.
 - Email remains read-only.
+- Organization name persists after owner edits.
+- Members cannot edit organization settings or member roles.
 - Logout returns the user to `/login`.
 - Protected pages redirect to `/login` after logout.
 

@@ -5,8 +5,13 @@ import { useRouter } from "next/navigation";
 
 import {
   AccountProfile,
+  TeamInfo,
+  TeamMember,
   getAccountProfile,
-  updateAccountProfile
+  getTeamInfo,
+  updateAccountProfile,
+  updateOrganizationName,
+  updateTeamMemberRole
 } from "@/lib/api";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -27,19 +32,34 @@ function formatRole(role: string | null): string {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
+function memberDisplayName(member: TeamMember): string {
+  return member.name?.trim() || member.email;
+}
+
 export function AccountSummary() {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
+  const [team, setTeam] = useState<TeamInfo | null>(null);
   const [name, setName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingOrganization, setIsSavingOrganization] = useState(false);
+  const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(
+    null
+  );
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [status, setStatus] = useState<FormStatus>({
     kind: "idle",
     message: ""
   });
+  const [teamStatus, setTeamStatus] = useState<FormStatus>({
+    kind: "idle",
+    message: ""
+  });
+  const isOwner = profile?.role === "owner";
 
   useEffect(() => {
     let ignore = false;
@@ -49,15 +69,20 @@ export function AccountSummary() {
       setStatus({ kind: "idle", message: "" });
 
       try {
-        const nextProfile = await getAccountProfile();
+        const [nextProfile, nextTeam] = await Promise.all([
+          getAccountProfile(),
+          getTeamInfo()
+        ]);
 
         if (ignore) {
           return;
         }
 
         setProfile(nextProfile);
+        setTeam(nextTeam);
         setName(nextProfile.name ?? "");
         setJobTitle(nextProfile.job_title ?? "");
+        setOrganizationName(nextTeam.organization_name);
       } catch (error) {
         if (ignore) {
           return;
@@ -113,6 +138,83 @@ export function AccountSummary() {
       });
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleOrganizationSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setIsSavingOrganization(true);
+    setTeamStatus({ kind: "idle", message: "" });
+
+    try {
+      const updatedTeam = await updateOrganizationName(organizationName.trim());
+
+      setTeam(updatedTeam);
+      setOrganizationName(updatedTeam.organization_name);
+      setProfile((currentProfile) =>
+        currentProfile
+          ? {
+              ...currentProfile,
+              organization_name: updatedTeam.organization_name
+            }
+          : currentProfile
+      );
+      setTeamStatus({
+        kind: "success",
+        message: "Organization updated."
+      });
+    } catch (error) {
+      setTeamStatus({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not update organization."
+      });
+    } finally {
+      setIsSavingOrganization(false);
+    }
+  }
+
+  async function handleRoleChange(
+    member: TeamMember,
+    role: TeamMember["role"]
+  ) {
+    setUpdatingRoleUserId(member.user_id);
+    setTeamStatus({ kind: "idle", message: "" });
+
+    try {
+      const updatedMember = await updateTeamMemberRole(member.user_id, role);
+
+      setTeam((currentTeam) =>
+        currentTeam
+          ? {
+              ...currentTeam,
+              members: currentTeam.members.map((currentMember) =>
+                currentMember.user_id === updatedMember.user_id
+                  ? updatedMember
+                  : currentMember
+              )
+            }
+          : currentTeam
+      );
+      setTeamStatus({
+        kind: "success",
+        message: `${memberDisplayName(updatedMember)} is now ${formatRole(
+          updatedMember.role
+        )}.`
+      });
+    } catch (error) {
+      setTeamStatus({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not update team member role."
+      });
+    } finally {
+      setUpdatingRoleUserId(null);
     }
   }
 
@@ -253,6 +355,116 @@ export function AccountSummary() {
           </div>
         </dl>
       </aside>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-blue-700">
+              Organization settings
+            </p>
+            <h2 className="mt-1 text-xl font-semibold tracking-normal text-slate-950">
+              Team access
+            </h2>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            {team?.members.length ?? 0} members
+          </span>
+        </div>
+
+        {teamStatus.message && (
+          <div
+            className={`mt-5 rounded-md border px-4 py-3 text-sm ${
+              teamStatus.kind === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-red-200 bg-red-50 text-red-800"
+            }`}
+          >
+            {teamStatus.message}
+          </div>
+        )}
+
+        <form
+          className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto]"
+          onSubmit={handleOrganizationSave}
+        >
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-slate-700">
+              Organization name
+            </span>
+            <input
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
+              disabled={!isOwner || isSavingOrganization}
+              maxLength={120}
+              onChange={(event) => setOrganizationName(event.target.value)}
+              type="text"
+              value={organizationName}
+            />
+          </label>
+          <div className="flex items-end">
+            <button
+              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              disabled={!isOwner || isSavingOrganization}
+              type="submit"
+            >
+              {isSavingOrganization ? "Saving..." : "Save organization"}
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-6 overflow-hidden rounded-lg border border-slate-200">
+          <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.8fr)] gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 sm:grid">
+            <span>Member</span>
+            <span>Job title</span>
+            <span>Role</span>
+          </div>
+
+          {team?.members.map((member) => {
+            const canChangeRole =
+              isOwner && member.user_id !== profile?.user_id;
+
+            return (
+              <div
+                className="grid gap-3 border-t border-slate-200 px-4 py-4 text-sm first:border-t-0 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,0.8fr)] sm:gap-4 sm:first:border-t"
+                key={member.user_id}
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-950">
+                    {memberDisplayName(member)}
+                  </p>
+                  <p className="mt-1 truncate text-slate-500">
+                    {member.email}
+                  </p>
+                </div>
+                <p className="self-center text-slate-600">
+                  {displayValue(member.job_title)}
+                </p>
+                <div className="self-center">
+                  {canChangeRole ? (
+                    <select
+                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={updatingRoleUserId === member.user_id}
+                      onChange={(event) =>
+                        void handleRoleChange(
+                          member,
+                          event.target.value as TeamMember["role"]
+                        )
+                      }
+                      value={member.role}
+                    >
+                      <option value="member">Member</option>
+                      <option value="owner">Owner</option>
+                    </select>
+                  ) : (
+                    <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      {formatRole(member.role)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

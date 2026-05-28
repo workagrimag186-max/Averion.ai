@@ -51,6 +51,22 @@ class AccountProfileUpdate:
     job_title: str | None
 
 
+@dataclass(frozen=True)
+class TeamMember:
+    user_id: str
+    email: str
+    name: str | None
+    job_title: str | None
+    role: str
+
+
+@dataclass(frozen=True)
+class Team:
+    organization_id: str
+    organization_name: str
+    members: list[TeamMember]
+
+
 def _ensure_organization(cursor, organization_id: str) -> None:
     if organization_id != settings.default_organization_id:
         return
@@ -92,6 +108,16 @@ def _row_to_account_profile(row) -> AccountProfile:
         avatar_url=row[6],
         job_title=row[7],
         role=row[8]
+    )
+
+
+def _row_to_team_member(row) -> TeamMember:
+    return TeamMember(
+        user_id=row[0],
+        email=row[1],
+        name=row[2],
+        job_title=row[3],
+        role=row[4]
     )
 
 
@@ -158,6 +184,118 @@ def get_account_profile(
 
             row = cursor.fetchone()
             return _row_to_account_profile(row) if row else None
+
+
+def get_team(organization_id: str) -> Team | None:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select id::text, name
+                from organizations
+                where id = %s::uuid
+                """,
+                (organization_id,)
+            )
+            organization_row = cursor.fetchone()
+
+            if organization_row is None:
+                return None
+
+            cursor.execute(
+                """
+                select
+                    id::text,
+                    email,
+                    name,
+                    job_title,
+                    role
+                from users
+                where organization_id = %s::uuid
+                order by
+                    case when role = 'owner' then 0 else 1 end,
+                    email
+                """,
+                (organization_id,)
+            )
+
+            return Team(
+                organization_id=organization_row[0],
+                organization_name=organization_row[1],
+                members=[
+                    _row_to_team_member(row)
+                    for row in cursor.fetchall()
+                ]
+            )
+
+
+def update_organization_name(
+    *,
+    organization_id: str,
+    name: str
+) -> Team | None:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update organizations
+                set name = %s,
+                    updated_at = now()
+                where id = %s::uuid
+                returning id::text
+                """,
+                (
+                    name,
+                    organization_id
+                )
+            )
+
+            if cursor.fetchone() is None:
+                return None
+
+    return get_team(organization_id)
+
+
+def update_team_member_role(
+    *,
+    organization_id: str,
+    user_id: str,
+    role: str
+) -> TeamMember | None:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                update users
+                set role = %s,
+                    updated_at = now()
+                where id = %s::uuid
+                    and organization_id = %s::uuid
+                returning
+                    id::text,
+                    email,
+                    name,
+                    job_title,
+                    role
+                """,
+                (
+                    role,
+                    user_id,
+                    organization_id
+                )
+            )
+
+            row = cursor.fetchone()
+            return _row_to_team_member(row) if row else None
 
 
 def update_account_profile(profile: AccountProfileUpdate) -> AccountProfile | None:
