@@ -116,6 +116,8 @@ When a request is authenticated:
 - New conversations store `user_id`.
 - Feedback stores the authenticated `user_id`.
 - Feedback can only be attached to assistant messages inside the current organization.
+- Account endpoints return the current user's organization and role.
+- Organization owners can rename their workspace and update other members' roles.
 
 For local development, `AUTH_REQUIRED=false` keeps the old
 `DEFAULT_ORGANIZATION_ID` fallback when no bearer token is sent. Set
@@ -129,6 +131,11 @@ For local development, `AUTH_REQUIRED=false` keeps the old
 - `GET /documents` - list uploaded documents from the database
 - `POST /documents/upload` - upload PDF, TXT, or DOCX files
 - `POST /chat` - planned RAG chat endpoint contract
+- `GET /users/me` - get the current account profile
+- `PATCH /users/me` - update editable profile fields
+- `GET /users/team` - list members in the current organization
+- `PATCH /users/organization` - owner-only organization rename
+- `PATCH /users/team/{user_id}/role` - owner-only member role update
 
 ## Upload API
 

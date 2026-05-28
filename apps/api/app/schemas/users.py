@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -25,3 +27,35 @@ class AccountProfileUpdateRequest(BaseModel):
 
         stripped_value = value.strip()
         return stripped_value or None
+
+
+class TeamMemberResponse(BaseModel):
+    user_id: str
+    email: str
+    name: str | None
+    job_title: str | None
+    role: Literal["owner", "member"]
+
+
+class TeamResponse(BaseModel):
+    organization_id: str
+    organization_name: str
+    members: list[TeamMemberResponse]
+
+
+class OrganizationUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        stripped_value = value.strip()
+
+        if not stripped_value:
+            raise ValueError("Organization name is required.")
+
+        return stripped_value
+
+
+class TeamMemberRoleUpdateRequest(BaseModel):
+    role: Literal["owner", "member"]

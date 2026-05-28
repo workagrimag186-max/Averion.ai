@@ -870,6 +870,44 @@ Acceptance criteria:
 
 Depends on: issues 35 through 42.
 
+### 44. Support Supabase JWT signing keys
+
+Labels: `type:bug`, `area:auth`, `area:backend`, `priority:p0`, `owner:shared`
+
+Description:
+
+Make backend access-token validation work with Supabase projects using the newer asymmetric JWT signing key system.
+
+Acceptance criteria:
+
+- Backend validates asymmetric Supabase access tokens through the project JWKS endpoint.
+- Legacy HS256 token validation still works for older projects.
+- SSL certificate handling works in local Python environments.
+- Invalid token and JWKS fetch failures return clear API errors instead of crashing.
+- Backend auth tests pass.
+
+Depends on: issues 40 and 43.
+
+### 45. Add organization and team settings foundation
+
+Labels: `type:feature`, `area:auth`, `area:frontend`, `area:backend`, `area:database`, `priority:p1`, `owner:shared`
+
+Description:
+
+Add a safe first version of workspace management on top of the account system.
+
+Acceptance criteria:
+
+- Account page shows current organization and member list.
+- Organization owners can rename the organization.
+- Organization owners can change other members between `member` and `owner`.
+- Owners cannot accidentally demote themselves.
+- Non-owner members can view workspace information but cannot edit organization or role settings.
+- Backend endpoints enforce owner-only organization and role changes.
+- Tests cover owner and member permission behavior.
+
+Depends on: issues 42, 43, and 44.
+
 Recommended implementation order:
 
 1. Issue 35.
@@ -881,6 +919,8 @@ Recommended implementation order:
 7. Issue 38.
 8. Issue 42.
 9. Issue 43.
+10. Issue 44.
+11. Issue 45.
 
 ## How To Add Your Friend As Collaborator
 

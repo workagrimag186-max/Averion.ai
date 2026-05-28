@@ -106,6 +106,22 @@ export type AccountProfileUpdate = {
 };
 
 
+export type TeamMember = {
+  user_id: string;
+  email: string;
+  name: string | null;
+  job_title: string | null;
+  role: "owner" | "member";
+};
+
+
+export type TeamInfo = {
+  organization_id: string;
+  organization_name: string;
+  members: TeamMember[];
+};
+
+
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
   const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -177,6 +193,81 @@ export async function updateAccountProfile(
   }
 
   return response.json() as Promise<AccountProfile>;
+}
+
+
+export async function getTeamInfo(): Promise<TeamInfo> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users/team`, {
+    method: "GET",
+    headers: authHeaders,
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not load team settings.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<TeamInfo>;
+}
+
+
+export async function updateOrganizationName(name: string): Promise<TeamInfo> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users/organization`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders
+    },
+    body: JSON.stringify({ name })
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not update organization.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<TeamInfo>;
+}
+
+
+export async function updateTeamMemberRole(
+  userId: string,
+  role: TeamMember["role"]
+): Promise<TeamMember> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users/team/${userId}/role`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders
+    },
+    body: JSON.stringify({ role })
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not update team member role.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<TeamMember>;
 }
 
 
