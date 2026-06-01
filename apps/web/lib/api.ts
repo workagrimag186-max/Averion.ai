@@ -122,6 +122,20 @@ export type TeamInfo = {
 };
 
 
+export type OrganizationInvitation = {
+  invitation_id: string;
+  organization_id: string;
+  organization_name: string;
+  invited_email: string;
+  invited_by_user_id: string;
+  status: "pending" | "accepted" | "revoked" | "expired";
+  expires_at: string;
+  created_at: string;
+  accepted_at: string | null;
+  accepted_by_user_id: string | null;
+};
+
+
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
   const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -263,6 +277,104 @@ export async function updateTeamMemberRole(
       typeof body?.detail === "string"
         ? body.detail
         : "Could not update team member role.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<TeamMember>;
+}
+
+
+export async function createOrganizationInvitation(
+  email: string
+): Promise<OrganizationInvitation> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users/invitations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders
+    },
+    body: JSON.stringify({ email })
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not create invitation.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<OrganizationInvitation>;
+}
+
+
+export async function listOrganizationInvitations(): Promise<
+  OrganizationInvitation[]
+> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users/invitations`, {
+    method: "GET",
+    headers: authHeaders,
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not load invitations.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<OrganizationInvitation[]>;
+}
+
+
+export async function acceptOrganizationInvitation(
+  invitationId: string
+): Promise<AccountProfile> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/users/invitations/${invitationId}/accept`,
+    {
+      method: "POST",
+      headers: authHeaders
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not accept invitation.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<AccountProfile>;
+}
+
+
+export async function removeTeamMember(userId: string): Promise<TeamMember> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/users/team/${userId}`, {
+    method: "DELETE",
+    headers: authHeaders
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not remove team member.";
 
     throw new Error(message);
   }

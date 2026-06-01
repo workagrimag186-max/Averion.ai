@@ -83,6 +83,22 @@ create table feedback (
   constraint feedback_rating_check check (rating in ('up', 'down'))
 );
 
+create table organization_invitations (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references organizations(id) on delete cascade,
+  invited_email text not null,
+  invited_by_user_id uuid not null references users(id) on delete cascade,
+  status text not null default 'pending',
+  expires_at timestamptz not null,
+  accepted_at timestamptz,
+  accepted_by_user_id uuid references users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint organization_invitations_status_check check (
+    status in ('pending', 'accepted', 'revoked', 'expired')
+  )
+);
+
 create index users_organization_email_idx on users (organization_id, email);
 create index documents_organization_status_idx on documents (organization_id, status);
 create index document_chunks_document_index_idx on document_chunks (document_id, chunk_index);
@@ -90,3 +106,8 @@ create index conversations_organization_user_idx on conversations (organization_
 create index messages_conversation_created_at_idx on messages (conversation_id, created_at);
 create index feedback_message_idx on feedback (message_id);
 create index feedback_user_idx on feedback (user_id);
+create unique index organization_invitations_pending_email_idx
+  on organization_invitations (organization_id, invited_email)
+  where status = 'pending';
+create index organization_invitations_email_status_idx
+  on organization_invitations (invited_email, status);

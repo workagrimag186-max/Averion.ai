@@ -120,7 +120,16 @@ run [supabase_private_workspaces_migration.sql](supabase_private_workspaces_migr
 After moving old accounts, re-upload or re-index old documents if vector search
 results still point to the previous development organization metadata.
 
-## Step 7: Optional Gmail-Only Validation
+## Step 7: Apply Invitation Migration
+
+Issue 47 adds organization invitations and member removal. Run
+[supabase_organization_invitations_migration.sql](supabase_organization_invitations_migration.sql)
+in the Supabase SQL Editor before using the invite flow.
+
+This creates `organization_invitations`, where pending invites are stored until
+the invited user signs in and accepts.
+
+## Step 8: Optional Gmail-Only Validation
 
 For the MVP, the recommended default is to allow any valid email address and add Google signin for Gmail/Google users.
 
@@ -133,7 +142,7 @@ ALLOWED_EMAIL_DOMAINS=gmail.com,googlemail.com
 
 The frontend value gives users quick validation feedback. The backend value is the real enforcement point and must be checked before trusting account access.
 
-## Step 8: Configure Google Signin
+## Step 9: Configure Google Signin
 
 Issue 38 adds the "Continue with Google" button to the login and signup pages. Supabase still needs dashboard configuration before the button can complete the OAuth flow.
 

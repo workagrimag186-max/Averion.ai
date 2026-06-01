@@ -9,6 +9,7 @@ class TableName(StrEnum):
     CONVERSATIONS = "conversations"
     MESSAGES = "messages"
     FEEDBACK = "feedback"
+    ORGANIZATION_INVITATIONS = "organization_invitations"
 
 
 class DocumentStatus(StrEnum):

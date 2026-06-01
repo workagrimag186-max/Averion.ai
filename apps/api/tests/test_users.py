@@ -7,6 +7,7 @@ from app.db.documents import DatabaseNotConfiguredError
 from app.db.users import (
     AccountProfile,
     AuthProfileCreate,
+    OrganizationInvitation,
     Team,
     TeamMember,
     UserProfile,
@@ -601,3 +602,215 @@ def test_owner_cannot_update_own_role() -> None:
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Owners cannot change their own role."}
+
+
+def test_owner_can_create_organization_invitation(monkeypatch) -> None:
+    captured_invitation = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id=settings.default_organization_id,
+            user_id="00000000-0000-0000-0000-000000000501",
+            auth_user_id="00000000-0000-0000-0000-000000000401",
+            email="owner@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    def fake_create_organization_invitation(
+        *,
+        organization_id: str,
+        invited_by_user_id: str,
+        invited_email: str
+    ):
+        captured_invitation["organization_id"] = organization_id
+        captured_invitation["invited_by_user_id"] = invited_by_user_id
+        captured_invitation["invited_email"] = invited_email
+
+        return OrganizationInvitation(
+            invitation_id="00000000-0000-0000-0000-000000000601",
+            organization_id=organization_id,
+            organization_name="Averion.ai",
+            invited_email=invited_email,
+            invited_by_user_id=invited_by_user_id,
+            status="pending",
+            expires_at="2026-06-08T00:00:00+00:00",
+            created_at="2026-06-01T00:00:00+00:00"
+        )
+
+    monkeypatch.setattr(
+        "app.api.users.create_organization_invitation",
+        fake_create_organization_invitation
+    )
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.post(
+            "/users/invitations",
+            json={"email": "  Friend@Example.com  "}
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert captured_invitation == {
+        "organization_id": settings.default_organization_id,
+        "invited_by_user_id": "00000000-0000-0000-0000-000000000501",
+        "invited_email": "friend@example.com"
+    }
+    assert response.json()["status"] == "pending"
+
+
+def test_member_cannot_create_organization_invitation() -> None:
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id=settings.default_organization_id,
+            user_id="00000000-0000-0000-0000-000000000502",
+            auth_user_id="00000000-0000-0000-0000-000000000402",
+            email="member@example.com",
+            role="member",
+            is_authenticated=True
+        )
+
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.post(
+            "/users/invitations",
+            json={"email": "friend@example.com"}
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+
+
+def test_user_can_accept_matching_invitation(monkeypatch) -> None:
+    captured_accept = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000777",
+            user_id="00000000-0000-0000-0000-000000000502",
+            auth_user_id="00000000-0000-0000-0000-000000000402",
+            email="friend@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    def fake_accept_organization_invitation(
+        *,
+        invitation_id: str,
+        user_id: str,
+        email: str
+    ):
+        captured_accept["invitation_id"] = invitation_id
+        captured_accept["user_id"] = user_id
+        captured_accept["email"] = email
+
+        return UserProfile(
+            user_id=user_id,
+            organization_id=settings.default_organization_id,
+            auth_user_id="00000000-0000-0000-0000-000000000402",
+            email=email,
+            name="Friend User",
+            avatar_url=None,
+            job_title=None,
+            role="member"
+        )
+
+    monkeypatch.setattr(
+        "app.api.users.accept_organization_invitation",
+        fake_accept_organization_invitation
+    )
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.post(
+            "/users/invitations/00000000-0000-0000-0000-000000000601/accept"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert captured_accept == {
+        "invitation_id": "00000000-0000-0000-0000-000000000601",
+        "user_id": "00000000-0000-0000-0000-000000000502",
+        "email": "friend@example.com"
+    }
+    assert response.json()["organization_id"] == settings.default_organization_id
+    assert response.json()["role"] == "member"
+
+
+def test_owner_can_remove_team_member(monkeypatch) -> None:
+    captured_remove = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id=settings.default_organization_id,
+            user_id="00000000-0000-0000-0000-000000000501",
+            auth_user_id="00000000-0000-0000-0000-000000000401",
+            email="owner@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    def fake_remove_team_member_from_organization(
+        *,
+        organization_id: str,
+        user_id: str
+    ):
+        captured_remove["organization_id"] = organization_id
+        captured_remove["user_id"] = user_id
+
+        return TeamMember(
+            user_id=user_id,
+            email="member@example.com",
+            name="Member User",
+            job_title=None,
+            role="member"
+        )
+
+    monkeypatch.setattr(
+        "app.api.users.remove_team_member_from_organization",
+        fake_remove_team_member_from_organization
+    )
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.delete(
+            "/users/team/00000000-0000-0000-0000-000000000502"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert captured_remove == {
+        "organization_id": settings.default_organization_id,
+        "user_id": "00000000-0000-0000-0000-000000000502"
+    }
+    assert response.json()["email"] == "member@example.com"
+
+
+def test_owner_cannot_remove_self() -> None:
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id=settings.default_organization_id,
+            user_id="00000000-0000-0000-0000-000000000501",
+            auth_user_id="00000000-0000-0000-0000-000000000401",
+            email="owner@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.delete(
+            "/users/team/00000000-0000-0000-0000-000000000501"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Owners cannot remove themselves."}
