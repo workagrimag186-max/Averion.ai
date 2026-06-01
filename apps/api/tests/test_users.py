@@ -37,6 +37,9 @@ class FakeCursor:
     def fetchone(self):
         return self.rows.pop(0)
 
+    def fetchall(self):
+        return self.rows.pop(0)
+
 
 class FakeConnection:
     def __init__(self, cursor):
@@ -110,7 +113,7 @@ def test_get_or_create_user_profile_creates_private_owner_workspace(monkeypatch)
     created_user_id = "00000000-0000-0000-0000-000000000602"
     cursor = FakeCursor(
         rows=[
-            None,
+            [],
             (private_organization_id,),
             (
                 created_user_id,
@@ -165,7 +168,9 @@ def test_get_or_create_user_profile_keeps_existing_workspace(monkeypatch) -> Non
         "Existing Name",
         None,
         None,
-        "member"
+        "member",
+        2,
+        True
     )
     updated_row = (
         existing_user_id,
@@ -177,7 +182,7 @@ def test_get_or_create_user_profile_keeps_existing_workspace(monkeypatch) -> Non
         None,
         "member"
     )
-    cursor = FakeCursor(rows=[existing_row, updated_row])
+    cursor = FakeCursor(rows=[[existing_row], updated_row])
 
     monkeypatch.setattr("app.db.users.is_database_configured", lambda: True)
     monkeypatch.setattr(
@@ -198,6 +203,79 @@ def test_get_or_create_user_profile_keeps_existing_workspace(monkeypatch) -> Non
     assert profile.name == "Existing Name"
     assert profile.role == "member"
     assert len(cursor.statements) == 2
+
+
+def test_get_or_create_user_profile_merges_duplicate_email_profiles(
+    monkeypatch
+) -> None:
+    shared_organization_id = "00000000-0000-0000-0000-000000000801"
+    private_organization_id = "00000000-0000-0000-0000-000000000802"
+    shared_user_id = "00000000-0000-0000-0000-000000000803"
+    duplicate_user_id = "00000000-0000-0000-0000-000000000804"
+    new_auth_user_id = "00000000-0000-0000-0000-000000000805"
+    shared_row = (
+        shared_user_id,
+        shared_organization_id,
+        "00000000-0000-0000-0000-000000000701",
+        "teammate@example.com",
+        "Existing Teammate",
+        None,
+        None,
+        "member",
+        3,
+        False
+    )
+    duplicate_row = (
+        duplicate_user_id,
+        private_organization_id,
+        new_auth_user_id,
+        "teammate@example.com",
+        "Duplicate Teammate",
+        None,
+        None,
+        "owner",
+        1,
+        True
+    )
+    updated_row = (
+        shared_user_id,
+        shared_organization_id,
+        new_auth_user_id,
+        "teammate@example.com",
+        "Existing Teammate",
+        "https://example.com/avatar.png",
+        None,
+        "member"
+    )
+    cursor = FakeCursor(rows=[[shared_row, duplicate_row], updated_row])
+
+    monkeypatch.setattr("app.db.users.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.db.users.psycopg.connect",
+        lambda *_args, **_kwargs: FakeConnection(cursor)
+    )
+
+    profile = get_or_create_user_profile(
+        AuthProfileCreate(
+            auth_user_id=new_auth_user_id,
+            email="teammate@example.com",
+            name="New OAuth Name",
+            avatar_url="https://example.com/avatar.png"
+        )
+    )
+
+    assert profile.user_id == shared_user_id
+    assert profile.organization_id == shared_organization_id
+    assert profile.role == "member"
+    assert any("delete from users" in query for query, _params in cursor.statements)
+    assert cursor.statements[-1][1] == (
+        new_auth_user_id,
+        "teammate@example.com",
+        "New OAuth Name",
+        "https://example.com/avatar.png",
+        None,
+        shared_user_id
+    )
 
 
 def test_get_current_user_profile_returns_database_profile(monkeypatch) -> None:

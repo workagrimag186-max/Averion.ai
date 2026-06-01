@@ -9,7 +9,10 @@ import {
   getAllowedEmailDomains,
   isEmailDomainAllowed
 } from "@/lib/auth-validation";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  getSupabaseBrowserClient,
+  getSupabaseSessionSafely
+} from "@/lib/supabase";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -26,19 +29,14 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      const { data, error } = await supabase.auth.getSession();
+      const session = await getSupabaseSessionSafely(supabase);
 
       if (ignore) {
         return;
       }
 
-      if (error) {
-        setMessage(error.message);
-        return;
-      }
-
-      if (data.session) {
-        const userEmail = data.session.user.email ?? "";
+      if (session) {
+        const userEmail = session.user.email ?? "";
         const allowedDomains = getAllowedEmailDomains();
 
         if (!isEmailDomainAllowed(userEmail, allowedDomains)) {

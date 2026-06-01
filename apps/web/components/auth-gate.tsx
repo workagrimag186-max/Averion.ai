@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  getSupabaseBrowserClient,
+  getSupabaseSessionSafely
+} from "@/lib/supabase";
 
 type AuthGateProps = {
   children: ReactNode;
@@ -29,13 +32,13 @@ export function AuthGate({ children }: AuthGateProps) {
     let ignore = false;
 
     async function checkSession() {
-      const { data } = await client.auth.getSession();
+      const session = await getSupabaseSessionSafely(client);
 
       if (ignore) {
         return;
       }
 
-      if (data.session) {
+      if (session) {
         setAuthState("authenticated");
         return;
       }

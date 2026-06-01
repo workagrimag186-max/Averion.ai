@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  getSupabaseBrowserClient,
+  getSupabaseSessionSafely
+} from "@/lib/supabase";
 
 const links = [
   { href: "/", label: "Overview" },
@@ -28,10 +31,10 @@ export function Navigation() {
     let ignore = false;
 
     async function loadSession() {
-      const { data } = await client.auth.getSession();
+      const session = await getSupabaseSessionSafely(client);
 
       if (!ignore) {
-        setEmail(data.session?.user.email ?? null);
+        setEmail(session?.user.email ?? null);
       }
     }
 
