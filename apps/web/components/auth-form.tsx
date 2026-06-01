@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { validateEmail, validatePassword } from "@/lib/auth-validation";
-import { getAuthRedirectUrl, getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  getAuthRedirectUrl,
+  getSupabaseBrowserClient,
+  getSupabaseSessionSafely
+} from "@/lib/supabase";
 
 type AuthMode = "login" | "signup";
 
@@ -80,9 +84,9 @@ export function AuthForm({ mode }: AuthFormProps) {
         return;
       }
 
-      const { data } = await supabase.auth.getSession();
+      const session = await getSupabaseSessionSafely(supabase);
 
-      if (!ignore && data.session) {
+      if (!ignore && session) {
         router.replace(getSafeNextPath());
       }
     }

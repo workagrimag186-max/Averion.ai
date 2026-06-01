@@ -1,4 +1,8 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  type Session,
+  type SupabaseClient
+} from "@supabase/supabase-js";
 
 let browserClient: SupabaseClient | null = null;
 
@@ -27,4 +31,17 @@ export function getAuthRedirectUrl(): string {
   }
 
   return "http://localhost:3000/auth/callback";
+}
+
+export async function getSupabaseSessionSafely(
+  client: SupabaseClient
+): Promise<Session | null> {
+  const { data, error } = await client.auth.getSession();
+
+  if (!error) {
+    return data.session;
+  }
+
+  await client.auth.signOut({ scope: "local" });
+  return null;
 }

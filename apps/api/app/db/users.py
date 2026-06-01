@@ -172,6 +172,78 @@ def _private_workspace_name_for_member(email: str, name: str | None) -> str:
     return f"{email_name or 'Averion'}'s Workspace"
 
 
+def _merge_duplicate_user_profiles(
+    cursor,
+    primary_user_id: str,
+    duplicate_user_ids: list[str]
+) -> None:
+    if not duplicate_user_ids:
+        return
+
+    cursor.execute(
+        """
+        update documents
+        set uploaded_by_user_id = %s::uuid
+        where uploaded_by_user_id = any(%s::uuid[])
+        """,
+        (
+            primary_user_id,
+            duplicate_user_ids
+        )
+    )
+    cursor.execute(
+        """
+        update conversations
+        set user_id = %s::uuid
+        where user_id = any(%s::uuid[])
+        """,
+        (
+            primary_user_id,
+            duplicate_user_ids
+        )
+    )
+    cursor.execute(
+        """
+        update feedback
+        set user_id = %s::uuid
+        where user_id = any(%s::uuid[])
+        """,
+        (
+            primary_user_id,
+            duplicate_user_ids
+        )
+    )
+    cursor.execute(
+        """
+        update organization_invitations
+        set invited_by_user_id = %s::uuid
+        where invited_by_user_id = any(%s::uuid[])
+        """,
+        (
+            primary_user_id,
+            duplicate_user_ids
+        )
+    )
+    cursor.execute(
+        """
+        update organization_invitations
+        set accepted_by_user_id = %s::uuid
+        where accepted_by_user_id = any(%s::uuid[])
+        """,
+        (
+            primary_user_id,
+            duplicate_user_ids
+        )
+    )
+    cursor.execute(
+        """
+        delete from users
+        where id = any(%s::uuid[])
+        """,
+        (duplicate_user_ids,)
+    )
+
+
 def get_user_profile_by_auth_id(auth_user_id: str) -> UserProfile | None:
     if not is_database_configured():
         raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
@@ -644,32 +716,54 @@ def get_or_create_user_profile(profile: AuthProfileCreate) -> UserProfile:
             cursor.execute(
                 """
                 select
-                    id::text,
-                    organization_id::text,
-                    auth_user_id::text,
-                    email,
-                    name,
-                    avatar_url,
-                    job_title,
-                    role
+                    users.id::text,
+                    users.organization_id::text,
+                    users.auth_user_id::text,
+                    users.email,
+                    users.name,
+                    users.avatar_url,
+                    users.job_title,
+                    users.role,
+                    count(organization_users.id) as organization_member_count,
+                    users.auth_user_id = %s::uuid as is_current_auth_user
                 from users
-                where auth_user_id = %s::uuid
+                left join users as organization_users
+                    on organization_users.organization_id = users.organization_id
+                where users.auth_user_id = %s::uuid
+                    or lower(users.email) = lower(%s)
+                group by users.id
+                order by
+                    count(organization_users.id) desc,
+                    is_current_auth_user desc,
+                    users.updated_at desc
                 """,
-                (profile.auth_user_id,)
+                (
+                    profile.auth_user_id,
+                    profile.auth_user_id,
+                    profile.email
+                )
             )
-            existing_row = cursor.fetchone()
+            identity_rows = cursor.fetchall()
 
-            if existing_row:
+            if identity_rows:
+                primary_row = identity_rows[0]
+                duplicate_user_ids = [row[0] for row in identity_rows[1:]]
+                _merge_duplicate_user_profiles(
+                    cursor,
+                    primary_user_id=primary_row[0],
+                    duplicate_user_ids=duplicate_user_ids
+                )
                 cursor.execute(
                     """
                     update users
                     set
+                        auth_user_id = %s::uuid,
                         email = %s,
                         name = coalesce(%s, name),
                         avatar_url = coalesce(%s, avatar_url),
                         job_title = coalesce(%s, job_title),
                         updated_at = now()
-                    where auth_user_id = %s::uuid
+                    where id = %s::uuid
                     returning
                         id::text,
                         organization_id::text,
@@ -681,11 +775,12 @@ def get_or_create_user_profile(profile: AuthProfileCreate) -> UserProfile:
                         role
                     """,
                     (
+                        profile.auth_user_id,
                         profile.email,
                         profile.name,
                         profile.avatar_url,
                         profile.job_title,
-                        profile.auth_user_id
+                        primary_row[0]
                     )
                 )
 

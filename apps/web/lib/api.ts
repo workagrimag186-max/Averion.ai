@@ -1,4 +1,7 @@
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  getSupabaseBrowserClient,
+  getSupabaseSessionSafely
+} from "@/lib/supabase";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -11,8 +14,8 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     return {};
   }
 
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+  const session = await getSupabaseSessionSafely(supabase);
+  const token = session?.access_token;
 
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
