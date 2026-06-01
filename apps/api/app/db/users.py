@@ -23,11 +23,12 @@ class UserProfile:
 class AuthProfileCreate:
     auth_user_id: str
     email: str
-    organization_id: str
+    organization_id: str | None = None
     name: str | None = None
     avatar_url: str | None = None
     job_title: str | None = None
-    role: str = "member"
+    role: str = "owner"
+    organization_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -67,10 +68,11 @@ class Team:
     members: list[TeamMember]
 
 
-def _ensure_organization(cursor, organization_id: str) -> None:
-    if organization_id != settings.default_organization_id:
-        return
-
+def _ensure_organization(
+    cursor,
+    organization_id: str,
+    name: str = "Development Organization"
+) -> None:
     cursor.execute(
         """
         insert into organizations (id, name)
@@ -78,10 +80,21 @@ def _ensure_organization(cursor, organization_id: str) -> None:
         on conflict (id) do nothing
         """,
         (
-            settings.default_organization_id,
-            "Development Organization"
+            organization_id,
+            name
         )
     )
+
+
+def _workspace_name_for_profile(profile: AuthProfileCreate) -> str:
+    if profile.organization_name and profile.organization_name.strip():
+        return profile.organization_name.strip()
+
+    if profile.name and profile.name.strip():
+        return f"{profile.name.strip()}'s Workspace"
+
+    email_name = profile.email.split("@", maxsplit=1)[0].strip()
+    return f"{email_name or 'Averion'}'s Workspace"
 
 
 def _row_to_user_profile(row) -> UserProfile:
@@ -346,7 +359,73 @@ def get_or_create_user_profile(profile: AuthProfileCreate) -> UserProfile:
 
     with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
         with connection.cursor() as cursor:
-            _ensure_organization(cursor, profile.organization_id)
+            cursor.execute(
+                """
+                select
+                    id::text,
+                    organization_id::text,
+                    auth_user_id::text,
+                    email,
+                    name,
+                    avatar_url,
+                    job_title,
+                    role
+                from users
+                where auth_user_id = %s::uuid
+                """,
+                (profile.auth_user_id,)
+            )
+            existing_row = cursor.fetchone()
+
+            if existing_row:
+                cursor.execute(
+                    """
+                    update users
+                    set
+                        email = %s,
+                        name = coalesce(%s, name),
+                        avatar_url = coalesce(%s, avatar_url),
+                        job_title = coalesce(%s, job_title),
+                        updated_at = now()
+                    where auth_user_id = %s::uuid
+                    returning
+                        id::text,
+                        organization_id::text,
+                        auth_user_id::text,
+                        email,
+                        name,
+                        avatar_url,
+                        job_title,
+                        role
+                    """,
+                    (
+                        profile.email,
+                        profile.name,
+                        profile.avatar_url,
+                        profile.job_title,
+                        profile.auth_user_id
+                    )
+                )
+
+                return _row_to_user_profile(cursor.fetchone())
+
+            if profile.organization_id:
+                organization_id = profile.organization_id
+                _ensure_organization(
+                    cursor,
+                    organization_id,
+                    _workspace_name_for_profile(profile)
+                )
+            else:
+                cursor.execute(
+                    """
+                    insert into organizations (name)
+                    values (%s)
+                    returning id::text
+                    """,
+                    (_workspace_name_for_profile(profile),)
+                )
+                organization_id = cursor.fetchone()[0]
 
             cursor.execute(
                 """
@@ -377,7 +456,7 @@ def get_or_create_user_profile(profile: AuthProfileCreate) -> UserProfile:
                     role
                 """,
                 (
-                    profile.organization_id,
+                    organization_id,
                     profile.auth_user_id,
                     profile.email,
                     profile.name,

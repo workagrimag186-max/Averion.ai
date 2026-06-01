@@ -194,9 +194,9 @@ def _profile_from_claims(claims: dict[str, Any]) -> AuthProfileCreate:
     return AuthProfileCreate(
         auth_user_id=auth_user_id,
         email=email,
-        organization_id=settings.default_organization_id,
         name=user_metadata.get("full_name") or user_metadata.get("name"),
-        avatar_url=user_metadata.get("avatar_url")
+        avatar_url=user_metadata.get("avatar_url"),
+        role="owner"
     )
 
 

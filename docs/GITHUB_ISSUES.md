@@ -908,6 +908,25 @@ Acceptance criteria:
 
 Depends on: issues 42, 43, and 44.
 
+### 46. Create isolated workspace per new user
+
+Labels: `type:bug`, `area:auth`, `area:backend`, `area:database`, `priority:p0`, `owner:shared`
+
+Description:
+
+Prevent unrelated signup accounts from sharing the same development organization and seeing each other's uploaded documents.
+
+Acceptance criteria:
+
+- New authenticated users are created in a private organization by default.
+- New authenticated users become `owner` of their private organization.
+- Existing authenticated users keep their current organization on repeat login.
+- Documents, conversations, chat retrieval, and feedback remain organization-scoped.
+- Optional migration SQL exists for splitting old test users out of the shared development organization.
+- Tests cover private workspace creation and existing workspace preservation.
+
+Depends on: issues 40, 41, and 45.
+
 Recommended implementation order:
 
 1. Issue 35.
@@ -921,6 +940,7 @@ Recommended implementation order:
 9. Issue 43.
 10. Issue 44.
 11. Issue 45.
+12. Issue 46.
 
 ## How To Add Your Friend As Collaborator
 

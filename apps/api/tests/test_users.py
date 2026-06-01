@@ -10,6 +10,7 @@ from app.db.users import (
     Team,
     TeamMember,
     UserProfile,
+    get_or_create_user_profile,
     get_user_profile_by_auth_id
 )
 from app.main import app
@@ -18,14 +19,46 @@ from app.main import app
 client = TestClient(app)
 
 
+class FakeCursor:
+    def __init__(self, rows):
+        self.rows = list(rows)
+        self.statements = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def execute(self, query, params=None):
+        self.statements.append((query, params))
+
+    def fetchone(self):
+        return self.rows.pop(0)
+
+
+class FakeConnection:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def cursor(self):
+        return self._cursor
+
+
 def test_auth_profile_create_defaults_to_member_role() -> None:
     profile = AuthProfileCreate(
         auth_user_id="00000000-0000-0000-0000-000000000401",
-        email="teammate@example.com",
-        organization_id=settings.default_organization_id
+        email="teammate@example.com"
     )
 
-    assert profile.role == "member"
+    assert profile.organization_id is None
+    assert profile.role == "owner"
     assert profile.name is None
     assert profile.avatar_url is None
     assert profile.job_title is None
@@ -69,6 +102,101 @@ def test_get_user_profile_requires_database(monkeypatch) -> None:
 
     with pytest.raises(DatabaseNotConfiguredError, match="DATABASE_URL is not configured"):
         get_user_profile_by_auth_id("00000000-0000-0000-0000-000000000401")
+
+
+def test_get_or_create_user_profile_creates_private_owner_workspace(monkeypatch) -> None:
+    private_organization_id = "00000000-0000-0000-0000-000000000601"
+    created_user_id = "00000000-0000-0000-0000-000000000602"
+    cursor = FakeCursor(
+        rows=[
+            None,
+            (private_organization_id,),
+            (
+                created_user_id,
+                private_organization_id,
+                "00000000-0000-0000-0000-000000000401",
+                "teammate@example.com",
+                "Averion Teammate",
+                "https://example.com/avatar.png",
+                None,
+                "owner"
+            )
+        ]
+    )
+
+    monkeypatch.setattr("app.db.users.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.db.users.psycopg.connect",
+        lambda *_args, **_kwargs: FakeConnection(cursor)
+    )
+
+    profile = get_or_create_user_profile(
+        AuthProfileCreate(
+            auth_user_id="00000000-0000-0000-0000-000000000401",
+            email="teammate@example.com",
+            name="Averion Teammate",
+            avatar_url="https://example.com/avatar.png"
+        )
+    )
+
+    assert profile.organization_id == private_organization_id
+    assert profile.role == "owner"
+    assert cursor.statements[1][1] == ("Averion Teammate's Workspace",)
+    assert cursor.statements[2][1] == (
+        private_organization_id,
+        "00000000-0000-0000-0000-000000000401",
+        "teammate@example.com",
+        "Averion Teammate",
+        "https://example.com/avatar.png",
+        None,
+        "owner"
+    )
+
+
+def test_get_or_create_user_profile_keeps_existing_workspace(monkeypatch) -> None:
+    existing_organization_id = "00000000-0000-0000-0000-000000000701"
+    existing_user_id = "00000000-0000-0000-0000-000000000702"
+    existing_row = (
+        existing_user_id,
+        existing_organization_id,
+        "00000000-0000-0000-0000-000000000401",
+        "teammate@example.com",
+        "Existing Name",
+        None,
+        None,
+        "member"
+    )
+    updated_row = (
+        existing_user_id,
+        existing_organization_id,
+        "00000000-0000-0000-0000-000000000401",
+        "teammate@example.com",
+        "Existing Name",
+        "https://example.com/avatar.png",
+        None,
+        "member"
+    )
+    cursor = FakeCursor(rows=[existing_row, updated_row])
+
+    monkeypatch.setattr("app.db.users.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.db.users.psycopg.connect",
+        lambda *_args, **_kwargs: FakeConnection(cursor)
+    )
+
+    profile = get_or_create_user_profile(
+        AuthProfileCreate(
+            auth_user_id="00000000-0000-0000-0000-000000000401",
+            email="teammate@example.com",
+            name="New Name From OAuth",
+            avatar_url="https://example.com/avatar.png"
+        )
+    )
+
+    assert profile.organization_id == existing_organization_id
+    assert profile.name == "Existing Name"
+    assert profile.role == "member"
+    assert len(cursor.statements) == 2
 
 
 def test_get_current_user_profile_returns_database_profile(monkeypatch) -> None:

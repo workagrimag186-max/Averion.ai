@@ -110,6 +110,10 @@ the Supabase Auth user to an Averion `users` profile and resolves the
 organization scope from that profile. Documents, conversations, and vector
 retrieval all use this organization scope.
 
+New authenticated users are created in their own private organization and become
+the owner of that workspace. Existing authenticated users keep their current
+organization on later logins.
+
 When a request is authenticated:
 
 - Uploaded documents store `uploaded_by_user_id`.
