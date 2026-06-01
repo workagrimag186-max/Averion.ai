@@ -4,8 +4,12 @@ from app.core.auth import RequestContext, get_request_context
 from app.db.documents import DatabaseNotConfiguredError
 from app.db.users import (
     AccountProfileUpdate,
+    accept_organization_invitation,
+    create_organization_invitation,
     get_account_profile,
     get_team,
+    list_pending_invitations_for_email,
+    remove_team_member_from_organization,
     update_account_profile,
     update_organization_name,
     update_team_member_role
@@ -13,6 +17,8 @@ from app.db.users import (
 from app.schemas.users import (
     AccountProfileResponse,
     AccountProfileUpdateRequest,
+    OrganizationInvitationCreateRequest,
+    OrganizationInvitationResponse,
     OrganizationUpdateRequest,
     TeamMemberResponse,
     TeamMemberRoleUpdateRequest,
@@ -64,6 +70,10 @@ def _team_response_from_record(team) -> TeamResponse:
             for member in team.members
         ]
     )
+
+
+def _invitation_response_from_record(invitation) -> OrganizationInvitationResponse:
+    return OrganizationInvitationResponse(**invitation.__dict__)
 
 
 @router.get("/me", response_model=AccountProfileResponse)
@@ -197,6 +207,125 @@ def update_current_user_team_member_role(
             organization_id=context.organization_id,
             user_id=user_id,
             role=request.role
+        )
+    except DatabaseNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc)
+        ) from exc
+
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team member not found."
+        )
+
+    return TeamMemberResponse(**member.__dict__)
+
+
+@router.post("/invitations", response_model=OrganizationInvitationResponse)
+def create_current_user_organization_invitation(
+    request: OrganizationInvitationCreateRequest,
+    context: RequestContext = Depends(get_request_context)
+) -> OrganizationInvitationResponse:
+    _require_owner(context)
+
+    if request.email == (context.email or "").strip().lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Owners cannot invite themselves."
+        )
+
+    try:
+        invitation = create_organization_invitation(
+            organization_id=context.organization_id,
+            invited_by_user_id=context.user_id,
+            invited_email=request.email
+        )
+    except DatabaseNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc)
+        ) from exc
+
+    return _invitation_response_from_record(invitation)
+
+
+@router.get("/invitations", response_model=list[OrganizationInvitationResponse])
+def get_current_user_invitations(
+    context: RequestContext = Depends(get_request_context)
+) -> list[OrganizationInvitationResponse]:
+    _require_profile(context)
+
+    try:
+        invitations = list_pending_invitations_for_email(context.email or "")
+    except DatabaseNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc)
+        ) from exc
+
+    return [
+        _invitation_response_from_record(invitation)
+        for invitation in invitations
+    ]
+
+
+@router.post("/invitations/{invitation_id}/accept", response_model=AccountProfileResponse)
+def accept_current_user_organization_invitation(
+    invitation_id: str,
+    context: RequestContext = Depends(get_request_context)
+) -> AccountProfileResponse:
+    _require_profile(context)
+
+    try:
+        profile = accept_organization_invitation(
+            invitation_id=invitation_id,
+            user_id=context.user_id,
+            email=context.email or ""
+        )
+    except DatabaseNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc)
+        ) from exc
+
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found."
+        )
+
+    return AccountProfileResponse(
+        user_id=profile.user_id,
+        organization_id=profile.organization_id,
+        organization_name=None,
+        auth_user_id=profile.auth_user_id,
+        email=profile.email,
+        name=profile.name,
+        avatar_url=profile.avatar_url,
+        job_title=profile.job_title,
+        role=profile.role
+    )
+
+
+@router.delete("/team/{user_id}", response_model=TeamMemberResponse)
+def remove_current_user_team_member(
+    user_id: str,
+    context: RequestContext = Depends(get_request_context)
+) -> TeamMemberResponse:
+    _require_owner(context)
+
+    if user_id == context.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Owners cannot remove themselves."
+        )
+
+    try:
+        member = remove_team_member_from_organization(
+            organization_id=context.organization_id,
+            user_id=user_id
         )
     except DatabaseNotConfiguredError as exc:
         raise HTTPException(

@@ -59,3 +59,30 @@ class OrganizationUpdateRequest(BaseModel):
 
 class TeamMemberRoleUpdateRequest(BaseModel):
     role: Literal["owner", "member"]
+
+
+class OrganizationInvitationCreateRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        stripped_value = value.strip().lower()
+
+        if "@" not in stripped_value:
+            raise ValueError("Enter a valid email address.")
+
+        return stripped_value
+
+
+class OrganizationInvitationResponse(BaseModel):
+    invitation_id: str
+    organization_id: str
+    organization_name: str
+    invited_email: str
+    invited_by_user_id: str
+    status: Literal["pending", "accepted", "revoked", "expired"]
+    expires_at: str
+    created_at: str
+    accepted_at: str | None = None
+    accepted_by_user_id: str | None = None

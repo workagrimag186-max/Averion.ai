@@ -122,6 +122,8 @@ When a request is authenticated:
 - Feedback can only be attached to assistant messages inside the current organization.
 - Account endpoints return the current user's organization and role.
 - Organization owners can rename their workspace and update other members' roles.
+- Organization owners can create invite records and remove other members.
+- Removed members are moved into a new private workspace where they are owner.
 
 For local development, `AUTH_REQUIRED=false` keeps the old
 `DEFAULT_ORGANIZATION_ID` fallback when no bearer token is sent. Set
@@ -140,6 +142,10 @@ For local development, `AUTH_REQUIRED=false` keeps the old
 - `GET /users/team` - list members in the current organization
 - `PATCH /users/organization` - owner-only organization rename
 - `PATCH /users/team/{user_id}/role` - owner-only member role update
+- `POST /users/invitations` - owner-only invitation creation
+- `GET /users/invitations` - list current user's pending invitations
+- `POST /users/invitations/{invitation_id}/accept` - accept a pending invitation
+- `DELETE /users/team/{user_id}` - owner-only member removal
 
 ## Upload API
 

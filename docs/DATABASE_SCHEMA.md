@@ -27,9 +27,11 @@ erDiagram
     organizations ||--o{ users : has
     organizations ||--o{ documents : owns
     organizations ||--o{ conversations : owns
+    organizations ||--o{ organization_invitations : sends
     users ||--o{ documents : uploads
     users ||--o{ conversations : starts
     users ||--o{ feedback : submits
+    users ||--o{ organization_invitations : creates
     documents ||--o{ document_chunks : contains
     conversations ||--o{ messages : contains
     messages ||--o{ feedback : receives
@@ -103,6 +105,19 @@ erDiagram
       text rating
       text correction_text
       timestamptz created_at
+    }
+
+    organization_invitations {
+      uuid id PK
+      uuid organization_id FK
+      text invited_email
+      uuid invited_by_user_id FK
+      text status
+      timestamptz expires_at
+      timestamptz accepted_at
+      uuid accepted_by_user_id FK
+      timestamptz created_at
+      timestamptz updated_at
     }
 ```
 
@@ -242,6 +257,23 @@ Stores human feedback for assistant answers.
 | `correction_text` | `text` | No | User-provided correction |
 | `created_at` | `timestamptz` | Yes | Creation time |
 
+### organization_invitations
+
+Stores pending and completed organization invitations.
+
+| Column | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `id` | `uuid` | Yes | Primary key |
+| `organization_id` | `uuid` | Yes | Target organization |
+| `invited_email` | `text` | Yes | Email address invited into the organization |
+| `invited_by_user_id` | `uuid` | Yes | Owner who created the invite |
+| `status` | `text` | Yes | Values: `pending`, `accepted`, `revoked`, `expired` |
+| `expires_at` | `timestamptz` | Yes | Invite expiry |
+| `accepted_at` | `timestamptz` | No | Time the invite was accepted |
+| `accepted_by_user_id` | `uuid` | No | User who accepted the invite |
+| `created_at` | `timestamptz` | Yes | Creation time |
+| `updated_at` | `timestamptz` | Yes | Last update time |
+
 ## Recommended Indexes
 
 - `users(organization_id, email)`
@@ -252,6 +284,8 @@ Stores human feedback for assistant answers.
 - `messages(conversation_id, created_at)`
 - `feedback(message_id)`
 - `feedback(user_id)`
+- `organization_invitations(organization_id, invited_email)` unique where pending
+- `organization_invitations(invited_email, status)`
 
 ## MVP Development Notes
 

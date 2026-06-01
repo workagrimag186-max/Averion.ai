@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 import psycopg
 
@@ -68,6 +69,20 @@ class Team:
     members: list[TeamMember]
 
 
+@dataclass(frozen=True)
+class OrganizationInvitation:
+    invitation_id: str
+    organization_id: str
+    organization_name: str
+    invited_email: str
+    invited_by_user_id: str
+    status: str
+    expires_at: str
+    created_at: str
+    accepted_at: str | None = None
+    accepted_by_user_id: str | None = None
+
+
 def _ensure_organization(
     cursor,
     organization_id: str,
@@ -132,6 +147,29 @@ def _row_to_team_member(row) -> TeamMember:
         job_title=row[3],
         role=row[4]
     )
+
+
+def _row_to_invitation(row) -> OrganizationInvitation:
+    return OrganizationInvitation(
+        invitation_id=row[0],
+        organization_id=row[1],
+        organization_name=row[2],
+        invited_email=row[3],
+        invited_by_user_id=row[4],
+        status=row[5],
+        expires_at=row[6],
+        created_at=row[7],
+        accepted_at=row[8],
+        accepted_by_user_id=row[9]
+    )
+
+
+def _private_workspace_name_for_member(email: str, name: str | None) -> str:
+    if name and name.strip():
+        return f"{name.strip()}'s Workspace"
+
+    email_name = email.split("@", maxsplit=1)[0].strip()
+    return f"{email_name or 'Averion'}'s Workspace"
 
 
 def get_user_profile_by_auth_id(auth_user_id: str) -> UserProfile | None:
@@ -309,6 +347,250 @@ def update_team_member_role(
 
             row = cursor.fetchone()
             return _row_to_team_member(row) if row else None
+
+
+def create_organization_invitation(
+    *,
+    organization_id: str,
+    invited_by_user_id: str,
+    invited_email: str
+) -> OrganizationInvitation:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    normalized_email = invited_email.strip().lower()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                insert into organization_invitations (
+                    organization_id,
+                    invited_email,
+                    invited_by_user_id,
+                    expires_at
+                )
+                values (%s::uuid, %s, %s::uuid, %s)
+                on conflict (organization_id, invited_email)
+                    where status = 'pending'
+                do update set
+                    invited_by_user_id = excluded.invited_by_user_id,
+                    expires_at = excluded.expires_at,
+                    updated_at = now()
+                returning
+                    organization_invitations.id::text,
+                    organization_invitations.organization_id::text,
+                    (
+                        select organizations.name
+                        from organizations
+                        where organizations.id = organization_invitations.organization_id
+                    ),
+                    organization_invitations.invited_email,
+                    organization_invitations.invited_by_user_id::text,
+                    organization_invitations.status,
+                    organization_invitations.expires_at::text,
+                    organization_invitations.created_at::text,
+                    organization_invitations.accepted_at::text,
+                    organization_invitations.accepted_by_user_id::text
+                """,
+                (
+                    organization_id,
+                    normalized_email,
+                    invited_by_user_id,
+                    expires_at
+                )
+            )
+
+            return _row_to_invitation(cursor.fetchone())
+
+
+def list_pending_invitations_for_email(email: str) -> list[OrganizationInvitation]:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    normalized_email = email.strip().lower()
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select
+                    organization_invitations.id::text,
+                    organization_invitations.organization_id::text,
+                    organizations.name,
+                    organization_invitations.invited_email,
+                    organization_invitations.invited_by_user_id::text,
+                    organization_invitations.status,
+                    organization_invitations.expires_at::text,
+                    organization_invitations.created_at::text,
+                    organization_invitations.accepted_at::text,
+                    organization_invitations.accepted_by_user_id::text
+                from organization_invitations
+                join organizations
+                    on organizations.id = organization_invitations.organization_id
+                where organization_invitations.invited_email = %s
+                    and organization_invitations.status = 'pending'
+                    and organization_invitations.expires_at > now()
+                order by organization_invitations.created_at desc
+                """,
+                (normalized_email,)
+            )
+
+            return [
+                _row_to_invitation(row)
+                for row in cursor.fetchall()
+            ]
+
+
+def accept_organization_invitation(
+    *,
+    invitation_id: str,
+    user_id: str,
+    email: str
+) -> UserProfile | None:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    normalized_email = email.strip().lower()
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select organization_id::text
+                from organization_invitations
+                where id = %s::uuid
+                    and invited_email = %s
+                    and status = 'pending'
+                    and expires_at > now()
+                """,
+                (
+                    invitation_id,
+                    normalized_email
+                )
+            )
+            invitation_row = cursor.fetchone()
+
+            if invitation_row is None:
+                return None
+
+            target_organization_id = invitation_row[0]
+
+            cursor.execute(
+                """
+                update users
+                set
+                    organization_id = %s::uuid,
+                    role = 'member',
+                    updated_at = now()
+                where id = %s::uuid
+                    and email = %s
+                returning
+                    id::text,
+                    organization_id::text,
+                    auth_user_id::text,
+                    email,
+                    name,
+                    avatar_url,
+                    job_title,
+                    role
+                """,
+                (
+                    target_organization_id,
+                    user_id,
+                    normalized_email
+                )
+            )
+            user_row = cursor.fetchone()
+
+            if user_row is None:
+                return None
+
+            cursor.execute(
+                """
+                update organization_invitations
+                set
+                    status = 'accepted',
+                    accepted_at = now(),
+                    accepted_by_user_id = %s::uuid,
+                    updated_at = now()
+                where id = %s::uuid
+                """,
+                (
+                    user_id,
+                    invitation_id
+                )
+            )
+
+            return _row_to_user_profile(user_row)
+
+
+def remove_team_member_from_organization(
+    *,
+    organization_id: str,
+    user_id: str
+) -> TeamMember | None:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select
+                    id::text,
+                    email,
+                    name,
+                    job_title,
+                    role
+                from users
+                where id = %s::uuid
+                    and organization_id = %s::uuid
+                """,
+                (
+                    user_id,
+                    organization_id
+                )
+            )
+            member_row = cursor.fetchone()
+
+            if member_row is None:
+                return None
+
+            removed_member = _row_to_team_member(member_row)
+
+            cursor.execute(
+                """
+                insert into organizations (name)
+                values (%s)
+                returning id::text
+                """,
+                (
+                    _private_workspace_name_for_member(
+                        removed_member.email,
+                        removed_member.name
+                    ),
+                )
+            )
+            private_organization_id = cursor.fetchone()[0]
+
+            cursor.execute(
+                """
+                update users
+                set
+                    organization_id = %s::uuid,
+                    role = 'owner',
+                    updated_at = now()
+                where id = %s::uuid
+                """,
+                (
+                    private_organization_id,
+                    user_id
+                )
+            )
+
+            return removed_member
 
 
 def update_account_profile(profile: AccountProfileUpdate) -> AccountProfile | None:
