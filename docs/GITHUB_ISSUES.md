@@ -927,6 +927,49 @@ Acceptance criteria:
 
 Depends on: issues 40, 41, and 45.
 
+### 47. Add organization invites and member removal
+
+Labels: `type:feature`, `area:auth`, `area:frontend`, `area:backend`, `area:database`, `priority:p0`, `owner:shared`
+
+Description:
+
+Let organization owners invite users into their workspace and remove members safely.
+
+Acceptance criteria:
+
+- Owners can send an invite to another user's email address.
+- Invites store sender, target email, target organization, status, and expiry.
+- Invited users can accept an invite after signing in.
+- When a user accepts an invite, they move into the inviter's organization as `member`.
+- If the invited user was owner of their own private signup organization, accepting the invite changes them to `member` in the target organization.
+- Owners can remove a member from their organization.
+- Removed members are moved into a new private organization where they are the `owner`.
+- Members cannot invite, accept on behalf of others, remove users, or change organization membership.
+- Owners cannot remove themselves.
+- Documents and conversations remain scoped to the organization where they were created.
+- Backend tests cover invite, accept, remove, and permission rules.
+
+Depends on: issues 45 and 46.
+
+### 48. Harden owner-to-owner role management
+
+Labels: `type:test`, `area:auth`, `area:backend`, `area:frontend`, `priority:p1`, `owner:shared`
+
+Description:
+
+Make role management rules explicit for organizations with multiple owners.
+
+Acceptance criteria:
+
+- An owner can promote a member to owner.
+- An owner can demote another owner to member.
+- An owner cannot demote themselves.
+- A member cannot change anyone's role.
+- Account team UI allows owner-to-owner role changes for other users.
+- Backend tests cover owner demotion and member-blocked role changes.
+
+Depends on: issue 45.
+
 Recommended implementation order:
 
 1. Issue 35.
@@ -941,6 +984,8 @@ Recommended implementation order:
 10. Issue 44.
 11. Issue 45.
 12. Issue 46.
+13. Issue 48.
+14. Issue 47.
 
 ## How To Add Your Friend As Collaborator
 

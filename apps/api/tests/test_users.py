@@ -502,6 +502,82 @@ def test_owner_can_update_team_member_role(monkeypatch) -> None:
     assert response.json()["role"] == "owner"
 
 
+def test_owner_can_demote_another_owner(monkeypatch) -> None:
+    captured_update = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id=settings.default_organization_id,
+            user_id="00000000-0000-0000-0000-000000000501",
+            auth_user_id="00000000-0000-0000-0000-000000000401",
+            email="owner@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    def fake_update_team_member_role(*, organization_id: str, user_id: str, role: str):
+        captured_update["organization_id"] = organization_id
+        captured_update["user_id"] = user_id
+        captured_update["role"] = role
+
+        return TeamMember(
+            user_id=user_id,
+            email="co-owner@example.com",
+            name="Co Owner",
+            job_title=None,
+            role=role
+        )
+
+    monkeypatch.setattr(
+        "app.api.users.update_team_member_role",
+        fake_update_team_member_role
+    )
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.patch(
+            "/users/team/00000000-0000-0000-0000-000000000503/role",
+            json={"role": "member"}
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert captured_update == {
+        "organization_id": settings.default_organization_id,
+        "user_id": "00000000-0000-0000-0000-000000000503",
+        "role": "member"
+    }
+    assert response.json()["role"] == "member"
+
+
+def test_member_cannot_update_team_member_role() -> None:
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id=settings.default_organization_id,
+            user_id="00000000-0000-0000-0000-000000000502",
+            auth_user_id="00000000-0000-0000-0000-000000000402",
+            email="member@example.com",
+            role="member",
+            is_authenticated=True
+        )
+
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.patch(
+            "/users/team/00000000-0000-0000-0000-000000000501/role",
+            json={"role": "member"}
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Only organization owners can manage workspace settings."
+    }
+
+
 def test_owner_cannot_update_own_role() -> None:
     def fake_context() -> RequestContext:
         return RequestContext(
