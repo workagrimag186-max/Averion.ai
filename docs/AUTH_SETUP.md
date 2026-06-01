@@ -106,7 +106,21 @@ job_title
 
 `auth_user_id` links a Supabase Auth identity to Averion's product profile. Passwords and OAuth identities stay inside Supabase Auth; Averion stores only product profile and organization membership data.
 
-## Step 6: Optional Gmail-Only Validation
+## Step 6: Private Workspaces
+
+New authenticated users get their own private organization/workspace and become
+the owner of that workspace. Documents, conversations, retrieval, and feedback
+are scoped to that organization, so unrelated signup accounts cannot see each
+other's uploads.
+
+If multiple real test accounts were created before issue 46, they may still be
+inside the shared `Development Organization`. To split those existing accounts,
+run [supabase_private_workspaces_migration.sql](supabase_private_workspaces_migration.sql) in the Supabase SQL Editor.
+
+After moving old accounts, re-upload or re-index old documents if vector search
+results still point to the previous development organization metadata.
+
+## Step 7: Optional Gmail-Only Validation
 
 For the MVP, the recommended default is to allow any valid email address and add Google signin for Gmail/Google users.
 
@@ -119,7 +133,7 @@ ALLOWED_EMAIL_DOMAINS=gmail.com,googlemail.com
 
 The frontend value gives users quick validation feedback. The backend value is the real enforcement point and must be checked before trusting account access.
 
-## Step 7: Configure Google Signin
+## Step 8: Configure Google Signin
 
 Issue 38 adds the "Continue with Google" button to the login and signup pages. Supabase still needs dashboard configuration before the button can complete the OAuth flow.
 

@@ -230,16 +230,17 @@ def test_request_context_creates_profile_when_database_is_configured(monkeypatch
         captured_profile["organization_id"] = profile.organization_id
         captured_profile["name"] = profile.name
         captured_profile["avatar_url"] = profile.avatar_url
+        captured_profile["role"] = profile.role
 
         return UserProfile(
             user_id="00000000-0000-0000-0000-000000000801",
-            organization_id=settings.default_organization_id,
+            organization_id="00000000-0000-0000-0000-000000000880",
             auth_user_id=profile.auth_user_id,
             email=profile.email,
             name=profile.name,
             avatar_url=profile.avatar_url,
             job_title=None,
-            role="member"
+            role="owner"
         )
 
     monkeypatch.setattr("app.core.auth.is_database_configured", lambda: True)
@@ -253,14 +254,15 @@ def test_request_context_creates_profile_when_database_is_configured(monkeypatch
     assert captured_profile == {
         "auth_user_id": "00000000-0000-0000-0000-000000000701",
         "email": "teammate@example.com",
-        "organization_id": settings.default_organization_id,
+        "organization_id": None,
         "name": "Averion Teammate",
-        "avatar_url": "https://example.com/avatar.png"
+        "avatar_url": "https://example.com/avatar.png",
+        "role": "owner"
     }
     assert context.user_id == "00000000-0000-0000-0000-000000000801"
-    assert context.organization_id == settings.default_organization_id
+    assert context.organization_id == "00000000-0000-0000-0000-000000000880"
     assert context.email == "teammate@example.com"
-    assert context.role == "member"
+    assert context.role == "owner"
     assert context.is_authenticated is True
 
 
