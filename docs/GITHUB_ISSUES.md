@@ -970,6 +970,33 @@ Acceptance criteria:
 
 Depends on: issue 45.
 
+### 49. Move organization embeddings to shared Supabase pgvector
+
+Labels: `type:feature`, `area:ai-ml`, `area:backend`, `area:database`, `priority:p0`, `owner:shared`
+
+Description:
+
+Move document embeddings out of local laptop `vector_store` storage and into a shared Supabase `pgvector` table so every member of the same organization can chat with documents uploaded by any teammate.
+
+Problem:
+
+Right now document metadata and chunks are shared in Supabase, so teammates can see the same uploaded files in the Documents page. But embeddings used for chat retrieval are still stored locally on the backend machine that processed the upload. This means a document uploaded from one laptop may be visible to another teammate but not retrievable in chat from that teammate's local backend.
+
+Acceptance criteria:
+
+- Supabase has a shared vector table for document chunk embeddings.
+- The vector table stores `organization_id`, `document_id`, `chunk_id`, `chunk_index`, embedding vector, and retrieval metadata.
+- Upload/ingestion writes embeddings to the shared Supabase vector table instead of only local `vector_store`.
+- Chat retrieval reads from the shared Supabase vector table scoped by `organization_id`.
+- A document uploaded by one organization member can be used in chat by another member of the same organization.
+- A document uploaded by one organization is not retrievable by users from another organization.
+- Existing citation mapping still returns `document_id`, `chunk_id`, filename, page number when available, snippet, and score.
+- Local Chroma/vector store usage is removed, disabled, or clearly kept only as an optional development fallback.
+- Backend tests cover same-organization retrieval and cross-organization isolation.
+- Manual test proves: user A uploads a document, user B joins the same organization, user B asks a question and gets cited answers from user A's document.
+
+Depends on: issues 22, 30, 46, 47, and 48.
+
 Recommended implementation order:
 
 1. Issue 35.
@@ -986,6 +1013,7 @@ Recommended implementation order:
 12. Issue 46.
 13. Issue 48.
 14. Issue 47.
+15. Issue 49.
 
 ## How To Add Your Friend As Collaborator
 
