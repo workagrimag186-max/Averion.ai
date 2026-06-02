@@ -8,6 +8,8 @@ select 'documents', to_regclass('public.documents') is not null
 union all
 select 'document_chunks', to_regclass('public.document_chunks') is not null
 union all
+select 'document_embeddings', to_regclass('public.document_embeddings') is not null
+union all
 select 'conversations', to_regclass('public.conversations') is not null
 union all
 select 'messages', to_regclass('public.messages') is not null

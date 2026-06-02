@@ -7,7 +7,7 @@ The goal of this schema is to support the MVP flow:
 1. A user uploads a document.
 2. The backend stores document metadata.
 3. The AI pipeline extracts, cleans, and chunks the document.
-4. Chunks are embedded and linked to vector store records.
+4. Chunks are embedded and stored in shared Supabase pgvector records.
 5. A user asks a question in a conversation.
 6. The backend stores messages and citations.
 7. The user gives feedback on an answer.
@@ -26,6 +26,7 @@ The goal of this schema is to support the MVP flow:
 erDiagram
     organizations ||--o{ users : has
     organizations ||--o{ documents : owns
+    organizations ||--o{ document_embeddings : owns
     organizations ||--o{ conversations : owns
     organizations ||--o{ organization_invitations : sends
     users ||--o{ documents : uploads
@@ -33,6 +34,7 @@ erDiagram
     users ||--o{ feedback : submits
     users ||--o{ organization_invitations : creates
     documents ||--o{ document_chunks : contains
+    documents ||--o{ document_embeddings : embeds
     conversations ||--o{ messages : contains
     messages ||--o{ feedback : receives
 
@@ -78,6 +80,19 @@ erDiagram
       int token_count
       text embedding_id
       timestamptz created_at
+    }
+
+    document_embeddings {
+      uuid id PK
+      text chunk_id
+      uuid organization_id FK
+      uuid document_id FK
+      int chunk_index
+      int page_number
+      text text
+      vector embedding
+      timestamptz created_at
+      timestamptz updated_at
     }
 
     conversations {
@@ -196,13 +211,36 @@ Stores searchable text chunks produced by the AI pipeline.
 | `page_number` | `integer` | No | Available for PDFs and some DOCX extraction later |
 | `text` | `text` | Yes | Chunk text used for retrieval and citations |
 | `token_count` | `integer` | No | Useful for prompt limits |
-| `embedding_id` | `text` | No | Vector DB id for this chunk |
+| `embedding_id` | `text` | No | Stable vector id for this chunk, formatted as `document_id:chunk_index` |
 | `created_at` | `timestamptz` | Yes | Creation time |
 
 Important constraints:
 
 - `(document_id, chunk_index)` should be unique.
 - Empty chunks should never be stored.
+
+### document_embeddings
+
+Stores shared pgvector embeddings for organization-scoped chat retrieval.
+
+| Column | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `id` | `uuid` | Yes | Primary key |
+| `chunk_id` | `text` | Yes | Stable retrieval id, formatted as `document_id:chunk_index` |
+| `organization_id` | `uuid` | Yes | References `organizations.id` |
+| `document_id` | `uuid` | Yes | References `documents.id` |
+| `chunk_index` | `integer` | Yes | Order inside the document |
+| `page_number` | `integer` | No | Available when extraction can resolve page number |
+| `text` | `text` | Yes | Chunk text used for prompt context and snippets |
+| `embedding` | `vector(384)` | Yes | Sentence-transformer embedding for semantic retrieval |
+| `created_at` | `timestamptz` | Yes | Creation time |
+| `updated_at` | `timestamptz` | Yes | Last update time |
+
+Important constraints:
+
+- `chunk_id` should be unique.
+- `(document_id, chunk_index)` should be unique.
+- `organization_id` is required so retrieval can filter to the current workspace.
 
 ### conversations
 
@@ -280,6 +318,9 @@ Stores pending and completed organization invitations.
 - `users(auth_user_id)` unique index for Supabase Auth profile lookup
 - `documents(organization_id, status)`
 - `document_chunks(document_id, chunk_index)`
+- `document_embeddings(organization_id)`
+- `document_embeddings(document_id, chunk_index)`
+- `document_embeddings` ivfflat index using `vector_cosine_ops`
 - `conversations(organization_id, user_id)`
 - `messages(conversation_id, created_at)`
 - `feedback(message_id)`

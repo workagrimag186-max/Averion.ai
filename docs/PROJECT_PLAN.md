@@ -92,7 +92,7 @@ Responsibilities:
 
 - LangChain for early RAG orchestration.
 - Sentence Transformers for embeddings.
-- Chroma for local vector search.
+- Supabase pgvector for shared organization-scoped vector search.
 - Hugging Face Transformers for models and tokenizers.
 - PyTorch later for fine-tuning embedding or reranker models.
 - TensorFlow later for a small document classifier or intent classifier.
@@ -117,7 +117,7 @@ flowchart TD
     G --> H["Chunking with overlap"]
     H --> I["Embedding generation"]
     H --> K["Store document chunks in Supabase"]
-    I --> J["Vector DB: Chroma"]
+    I --> J["Shared Vector DB: Supabase pgvector"]
     J --> X["Vector metadata links to Supabase chunks"]
     J --> L["Retriever"]
     M["User asks question"] --> N["Chat UI"]
@@ -308,7 +308,7 @@ Citation contract:
 
 - `document_id` identifies the source document row.
 - `chunk_index` identifies the chunk order inside that document.
-- `chunk_id` uses `document_id:chunk_index` so Chroma results can map back to the unique Supabase `document_chunks(document_id, chunk_index)` row.
+- `chunk_id` uses `document_id:chunk_index` so pgvector results can map back to the unique Supabase `document_chunks(document_id, chunk_index)` row.
 - `filename`, `page_number`, and `snippet` are display fields for the frontend.
 - `score` can be included by retrieval for debugging or ranking display.
 
@@ -377,7 +377,7 @@ Deliverables:
 - Uploaded document metadata stored in Supabase.
 - Extracted chunks stored in `document_chunks`.
 - Documents page lists Supabase-backed uploads.
-- Chroma vector metadata links back to Supabase chunks.
+- Shared pgvector metadata links back to Supabase chunks.
 
 ### Milestone 3: RAG chat
 

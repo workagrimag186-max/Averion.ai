@@ -83,7 +83,6 @@ ALLOWED_EMAIL_DOMAINS
 AUTH_REQUIRED
 UPLOAD_DIR
 CORS_ORIGINS
-VECTOR_DB_PATH
 EMBEDDING_MODEL_NAME
 RETRIEVAL_TOP_K
 LLM_PROVIDER
@@ -178,9 +177,9 @@ record automatically.
 
 Vector search results include `document_id`, `chunk_index`, and a stable
 `chunk_id` value formatted as `document_id:chunk_index`. That metadata links
-Chroma vector results back to the matching Supabase `document_chunks` row.
-Vector metadata also includes `organization_id`, and chat retrieval filters
-results to the current organization.
+shared Supabase pgvector results back to the matching Supabase
+`document_chunks` row. Vector metadata also includes `organization_id`, and
+chat retrieval filters results to the current organization.
 
 ## Chat API Contract
 
@@ -221,5 +220,5 @@ Response:
 ```
 
 The `chunk_id` is formatted as `document_id:chunk_index`, matching the unique
-Supabase `document_chunks(document_id, chunk_index)` record and the Chroma
-vector metadata from S6.
+Supabase `document_chunks(document_id, chunk_index)` record and the shared
+`document_embeddings` pgvector metadata.

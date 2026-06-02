@@ -1,103 +1,138 @@
-import chromadb
+from math import sqrt
 from typing import Any
 
+import psycopg
+
 from app.core.config import settings
+from app.db.connection import is_database_configured
 
-# Initialize ChromaDB with persistent storage
-client = chromadb.PersistentClient(path=settings.vector_db_path)
-
-collection = client.get_or_create_collection("documents")
+_memory_vectors: dict[str, dict[str, Any]] = {}
 
 
 def build_chunk_id(document_id: str, chunk_index: int | str) -> str:
     return f"{document_id}:{chunk_index}"
 
 
+def _vector_literal(embedding: list[float]) -> str:
+    return "[" + ",".join(str(float(value)) for value in embedding) + "]"
+
+
+def _cosine_distance(left: list[float], right: list[float]) -> float:
+    dot_product = sum(a * b for a, b in zip(left, right))
+    left_norm = sqrt(sum(value * value for value in left))
+    right_norm = sqrt(sum(value * value for value in right))
+
+    if left_norm == 0 or right_norm == 0:
+        return 1.0
+
+    return 1.0 - (dot_product / (left_norm * right_norm))
+
+
+def _normalize_chunk(chunk: dict) -> dict[str, Any] | None:
+    embedding = chunk.get("embedding")
+    if not embedding or not isinstance(embedding, list):
+        return None
+
+    text = str(chunk.get("text", "")).strip()
+    if not text:
+        return None
+
+    document_id = str(chunk["document_id"])
+    organization_id = str(
+        chunk.get("organization_id") or settings.default_organization_id
+    )
+    chunk_index = int(chunk["chunk_index"])
+    chunk_id = str(chunk.get("chunk_id") or build_chunk_id(document_id, chunk_index))
+    page_number = chunk.get("page_number")
+
+    return {
+        "chunk_id": chunk_id,
+        "organization_id": organization_id,
+        "document_id": document_id,
+        "chunk_index": chunk_index,
+        "page_number": page_number,
+        "text": text,
+        "embedding": [float(value) for value in embedding]
+    }
+
+
 def reset_collection() -> None:
     """
-    Clear and recreate the documents collection.
+    Clear stored vectors.
 
-    Use this only in tests or manual reset scripts. Normal document ingestion
-    should upsert new chunks without deleting existing vectors.
+    This is intended for tests and manual local resets only. Normal ingestion
+    upserts vectors and must not delete existing organization embeddings.
     """
-    global collection
+    _memory_vectors.clear()
 
-    try:
-        client.delete_collection("documents")
-    except Exception:
-        pass
+    if not is_database_configured():
+        return
 
-    collection = client.get_or_create_collection("documents")
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("delete from document_embeddings")
 
 
 def store_embeddings(chunks: list[dict], clear_existing: bool = False) -> None:
     """
-    Store embeddings in ChromaDB.
-    
-    Args:
-        chunks: List of chunk dictionaries with document_id, chunk_index,
-                page_number, text, and embedding fields
-        clear_existing: When True, reset the collection before storing.
-            This is intended for tests only.
+    Store document chunk embeddings in shared Supabase/Postgres pgvector storage.
+
+    A no-database in-memory fallback is kept only for tests and local
+    development when DATABASE_URL is not configured.
     """
-    print(f"[DEBUG] Storing chunks: {len(chunks)}")
-    
     if clear_existing:
         reset_collection()
-    
-    # Batch insert - collect all data first
-    ids = []
-    embeddings = []
-    documents = []
-    metadatas: list[dict[str, Any]] = []
-    
-    for chunk in chunks:
-        # Skip chunks without embeddings
-        if "embedding" not in chunk:
-            print(f"[DEBUG] Skipping chunk without embedding: {chunk.get('chunk_index')}")
-            continue
-        
-        embedding = chunk["embedding"]
-        if not embedding or not isinstance(embedding, list):
-            print(f"[DEBUG] Invalid embedding format for chunk {chunk.get('chunk_index')}")
-            continue
-        
-        try:
-            document_id = str(chunk["document_id"])
-            organization_id = str(
-                chunk.get("organization_id") or settings.default_organization_id
+
+    rows = [
+        normalized_chunk
+        for chunk in chunks
+        if (normalized_chunk := _normalize_chunk(chunk)) is not None
+    ]
+
+    if not rows:
+        return
+
+    if not is_database_configured():
+        for row in rows:
+            _memory_vectors[row["chunk_id"]] = row
+        return
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                """
+                insert into document_embeddings (
+                    chunk_id,
+                    organization_id,
+                    document_id,
+                    chunk_index,
+                    page_number,
+                    text,
+                    embedding
+                )
+                values (%s, %s::uuid, %s::uuid, %s, %s, %s, %s::vector)
+                on conflict (chunk_id) do update set
+                    organization_id = excluded.organization_id,
+                    document_id = excluded.document_id,
+                    chunk_index = excluded.chunk_index,
+                    page_number = excluded.page_number,
+                    text = excluded.text,
+                    embedding = excluded.embedding,
+                    updated_at = now()
+                """,
+                [
+                    (
+                        row["chunk_id"],
+                        row["organization_id"],
+                        row["document_id"],
+                        row["chunk_index"],
+                        row["page_number"],
+                        row["text"],
+                        _vector_literal(row["embedding"])
+                    )
+                    for row in rows
+                ]
             )
-            chunk_index = chunk["chunk_index"]
-            chunk_id = str(chunk.get("chunk_id") or build_chunk_id(document_id, chunk_index))
-            page_number = chunk.get("page_number")
-            
-            # Append to batch lists
-            ids.append(chunk_id)
-            embeddings.append(embedding)
-            documents.append(chunk["text"])
-            metadatas.append({
-                "document_id": document_id,
-                "organization_id": organization_id,
-                "chunk_index": int(chunk_index),
-                "chunk_id": chunk_id,
-                "page_number": page_number if page_number is not None else -1
-            })
-        except Exception as e:
-            print(f"[DEBUG] Failed to process chunk {chunk.get('chunk_index')}: {e}")
-            continue
-    
-    # Batch insert all chunks at once
-    if ids:
-        print(f"[DEBUG] Upserting {len(ids)} chunks to ChromaDB")
-        collection.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas
-        )
-        print(f"[DEBUG] Collection count after upsert: {collection.count()}")
-    else:
-        print("[DEBUG] No valid chunks to store")
 
 
 def search_similar(
@@ -106,75 +141,76 @@ def search_similar(
     organization_id: str | None = None
 ) -> list[dict]:
     """
-    Search for similar chunks using query embedding.
-    
-    Args:
-        query_embedding: Query vector
-        top_k: Number of results to return
-        
-    Returns:
-        List of similar chunks with text, metadata, and scores
+    Search for similar chunks using a shared organization-scoped vector table.
     """
-    try:
-        # Check if collection is empty
-        count = collection.count()
-        print(f"[DEBUG] Collection count: {count}")
-        if count == 0:
-            print("[DEBUG] Collection is empty, returning no results")
-            return []
-        
-        # Query ChromaDB
-        where_filter = None
-        if organization_id:
-            where_filter = {"organization_id": organization_id}
-
-        query_args: dict[str, Any] = {
-            "query_embeddings": [query_embedding],
-            "n_results": top_k,
-            "include": ["documents", "metadatas", "distances"]
-        }
-        if where_filter is not None:
-            query_args["where"] = where_filter
-
-        results = collection.query(**query_args)
-        
-        # Safety checks
-        if not results:
-            return []
-        
-        documents_list = results.get("documents", [[]])
-        metadatas_list = results.get("metadatas", [[]])
-        distances_list = results.get("distances", [[]])
-        
-        if not documents_list or not metadatas_list or not distances_list:
-            return []
-        
-        if not documents_list[0]:
-            return []
-        
-        documents = documents_list[0]
-        metadatas = metadatas_list[0]
-        distances = distances_list[0]
-        
-        # Build output list
-        output = []
-        for doc, meta, dist in zip(documents, metadatas, distances):
-            page_number = meta.get("page_number")
-
-            output.append({
-                "text": doc,
-                "document_id": meta.get("document_id"),
-                "organization_id": meta.get("organization_id"),
-                "chunk_index": meta.get("chunk_index"),
-                "chunk_id": meta.get("chunk_id"),
-                "page_number": None if page_number == -1 else page_number,
-                "score": dist
-            })
-        
-        return output
-        
-    except Exception:
-        # Return empty list on error
+    if not query_embedding:
         return []
 
-# Made with Bob
+    scoped_organization_id = organization_id or settings.default_organization_id
+
+    if not is_database_configured():
+        results = [
+            {
+                **row,
+                "score": _cosine_distance(query_embedding, row["embedding"])
+            }
+            for row in _memory_vectors.values()
+            if row["organization_id"] == scoped_organization_id
+        ]
+        results.sort(key=lambda row: row["score"])
+        return [
+            {
+                "text": row["text"],
+                "document_id": row["document_id"],
+                "organization_id": row["organization_id"],
+                "chunk_index": row["chunk_index"],
+                "chunk_id": row["chunk_id"],
+                "page_number": row["page_number"],
+                "score": row["score"]
+            }
+            for row in results[:top_k]
+        ]
+
+    embedding_literal = _vector_literal([float(value) for value in query_embedding])
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select
+                    document_embeddings.text,
+                    document_embeddings.document_id::text,
+                    document_embeddings.organization_id::text,
+                    document_embeddings.chunk_index,
+                    document_embeddings.chunk_id,
+                    document_embeddings.page_number,
+                    document_embeddings.embedding <=> %s::vector as score
+                from document_embeddings
+                join documents
+                    on documents.id = document_embeddings.document_id
+                where document_embeddings.organization_id = %s::uuid
+                    and documents.organization_id = %s::uuid
+                order by document_embeddings.embedding <=> %s::vector
+                limit %s
+                """,
+                (
+                    embedding_literal,
+                    scoped_organization_id,
+                    scoped_organization_id,
+                    embedding_literal,
+                    top_k
+                )
+            )
+
+            return [
+                {
+                    "text": row[0],
+                    "document_id": row[1],
+                    "organization_id": row[2],
+                    "chunk_index": row[3],
+                    "chunk_id": row[4],
+                    "page_number": row[5],
+                    "score": row[6]
+                }
+                for row in cursor.fetchall()
+            ]

@@ -5,7 +5,7 @@ from fastapi import UploadFile
 
 from app.ai.ingestion_pipeline import run_ingestion_pipeline
 from app.ai.embeddings import generate_embeddings
-from app.ai.vector_store import store_embeddings
+from app.ai.vector_store import build_chunk_id, store_embeddings
 from app.db.schema import DocumentFileType, DocumentStatus
 from app.db.connection import is_database_configured
 from app.db.documents import (
@@ -127,6 +127,11 @@ async def save_uploaded_document(
             )
             for chunk in chunks:
                 chunk["organization_id"] = organization_id
+                chunk["chunk_id"] = build_chunk_id(
+                    document_id,
+                    chunk.get("chunk_index", 0)
+                )
+                chunk["embedding_id"] = chunk["chunk_id"]
 
             chunk_records = _build_chunk_records(chunks, document_id)
 

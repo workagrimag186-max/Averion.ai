@@ -25,6 +25,7 @@ class FakeEmbeddingModel:
 def test_retrieval(monkeypatch):
     """Test retrieval service with sample chunks."""
     monkeypatch.setattr("app.ai.embeddings._model", FakeEmbeddingModel())
+    monkeypatch.setattr("app.ai.vector_store.is_database_configured", lambda: False)
     
     # Prepare sample chunks without embeddings
     chunks = [

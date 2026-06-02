@@ -3,6 +3,8 @@
 
 create extension if not exists pgcrypto;
 
+create extension if not exists vector;
+
 create table organizations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -51,6 +53,21 @@ create table document_chunks (
   created_at timestamptz not null default now(),
   constraint document_chunks_text_not_empty check (length(trim(text)) > 0),
   constraint document_chunks_index_unique unique (document_id, chunk_index)
+);
+
+create table document_embeddings (
+  id uuid primary key default gen_random_uuid(),
+  chunk_id text not null unique,
+  organization_id uuid not null references organizations(id) on delete cascade,
+  document_id uuid not null references documents(id) on delete cascade,
+  chunk_index int not null,
+  page_number int,
+  text text not null,
+  embedding vector(384) not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint document_embeddings_text_not_empty check (length(trim(text)) > 0),
+  constraint document_embeddings_document_chunk_unique unique (document_id, chunk_index)
 );
 
 create table conversations (
@@ -102,6 +119,12 @@ create table organization_invitations (
 create index users_organization_email_idx on users (organization_id, email);
 create index documents_organization_status_idx on documents (organization_id, status);
 create index document_chunks_document_index_idx on document_chunks (document_id, chunk_index);
+create index document_embeddings_organization_idx on document_embeddings (organization_id);
+create index document_embeddings_document_idx on document_embeddings (document_id, chunk_index);
+create index document_embeddings_vector_idx
+  on document_embeddings
+  using ivfflat (embedding vector_cosine_ops)
+  with (lists = 100);
 create index conversations_organization_user_idx on conversations (organization_id, user_id);
 create index messages_conversation_created_at_idx on messages (conversation_id, created_at);
 create index feedback_message_idx on feedback (message_id);
