@@ -9,19 +9,19 @@ Supabase is used as the PostgreSQL database for structured product data:
 - users
 - documents
 - document_chunks
+- document_embeddings
 - conversations
 - messages
 - feedback
 
-Chroma is still used for vector search during the MVP. Supabase stores metadata and text chunks; Chroma stores embeddings.
+Supabase also stores shared pgvector embeddings so every member of the same organization can retrieve the same uploaded documents in chat.
 
 ## What Connects To What
 
 ```text
 Frontend upload UI
   -> FastAPI backend
-  -> Supabase Postgres for metadata and chunks
-  -> Chroma for vector embeddings
+  -> Supabase Postgres for metadata, chunks, and pgvector embeddings
 ```
 
 The frontend should not receive the database password. Only the FastAPI backend uses `DATABASE_URL`.
@@ -85,6 +85,7 @@ organizations
 users
 documents
 document_chunks
+document_embeddings
 conversations
 messages
 feedback
@@ -96,12 +97,16 @@ Open [supabase_verify.sql](supabase_verify.sql), copy the SQL, and run it in Sup
 
 Expected result:
 
-- 7 rows
+- 8 rows
 - every `exists` value is `true`
 
-You can also check in the Supabase Table Editor that all seven tables are visible.
+You can also check in the Supabase Table Editor that all eight tables are visible.
 
 If your database was created before issue 36, also run [supabase_auth_profile_migration.sql](supabase_auth_profile_migration.sql) to add the Supabase Auth profile mapping columns to `users`.
+If your database was created before issue 49, also run [supabase_pgvector_embeddings_migration.sql](supabase_pgvector_embeddings_migration.sql) to enable `pgvector` and add the shared `document_embeddings` table.
+Documents uploaded before this pgvector migration should be re-uploaded for
+shared organization chat, because their embeddings were previously stored only
+in a local vector store.
 
 ## Step 5: Create Local Env File
 
@@ -134,8 +139,9 @@ temporary organization path so it can be replaced cleanly by real auth later.
 
 When `DATABASE_URL` is configured, uploaded documents also run through the
 extraction, cleaning, and chunking pipeline. Produced chunks are stored in the
-`document_chunks` table and the document status is updated to `ready`. If no
-readable chunks are produced, the document is marked `failed`.
+`document_chunks` table, embeddings are stored in the shared
+`document_embeddings` pgvector table, and the document status is updated to
+`ready`. If no readable chunks are produced, the document is marked `failed`.
 
 ## Safety Checklist
 

@@ -13,6 +13,41 @@ from app.ai.embeddings import generate_embeddings
 from app.ai.vector_store import build_chunk_id, store_embeddings, search_similar
 
 
+class FakeVectorCursor:
+    def __init__(self, rows=None):
+        self.rows = rows or []
+        self.statements = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def execute(self, query, params=None):
+        self.statements.append((query, params))
+
+    def executemany(self, query, params=None):
+        self.statements.append((query, params))
+
+    def fetchall(self):
+        return self.rows
+
+
+class FakeVectorConnection:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def cursor(self):
+        return self._cursor
+
+
 class FakeEmbedding:
     def __init__(self, values: list[float]):
         self.values = values
@@ -36,6 +71,7 @@ class FakeEmbeddingModel:
 def test_vector_store(monkeypatch):
     """Test storing and searching embeddings."""
     monkeypatch.setattr("app.ai.embeddings._model", FakeEmbeddingModel())
+    monkeypatch.setattr("app.ai.vector_store.is_database_configured", lambda: False)
     
     print("=" * 60)
     print("VECTOR STORE TEST")
@@ -133,6 +169,7 @@ def test_vector_store(monkeypatch):
 
 def test_vector_upsert_does_not_delete_existing_vectors(monkeypatch):
     monkeypatch.setattr("app.ai.embeddings._model", FakeEmbeddingModel())
+    monkeypatch.setattr("app.ai.vector_store.is_database_configured", lambda: False)
 
     first_batch = generate_embeddings([
         {
@@ -173,6 +210,7 @@ def test_vector_upsert_does_not_delete_existing_vectors(monkeypatch):
 
 def test_vector_search_filters_by_organization(monkeypatch):
     monkeypatch.setattr("app.ai.embeddings._model", FakeEmbeddingModel())
+    monkeypatch.setattr("app.ai.vector_store.is_database_configured", lambda: False)
 
     chunks = generate_embeddings([
         {
@@ -200,6 +238,88 @@ def test_vector_search_filters_by_organization(monkeypatch):
     assert org_b_results
     assert all(result["organization_id"] == "org-a" for result in org_a_results)
     assert all(result["organization_id"] == "org-b" for result in org_b_results)
+
+
+def test_store_embeddings_writes_to_shared_pgvector_table(monkeypatch):
+    cursor = FakeVectorCursor()
+    monkeypatch.setattr("app.ai.vector_store.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.ai.vector_store.psycopg.connect",
+        lambda *_args, **_kwargs: FakeVectorConnection(cursor)
+    )
+
+    store_embeddings([
+        {
+            "document_id": "00000000-0000-0000-0000-000000000101",
+            "organization_id": "00000000-0000-0000-0000-000000000201",
+            "chunk_index": 0,
+            "chunk_id": "00000000-0000-0000-0000-000000000101:0",
+            "page_number": 1,
+            "text": "Shared organization document text",
+            "embedding": [1.0, 0.0, 0.0]
+        }
+    ])
+
+    query, params = cursor.statements[0]
+
+    assert "insert into document_embeddings" in query
+    assert params[0] == (
+        "00000000-0000-0000-0000-000000000101:0",
+        "00000000-0000-0000-0000-000000000201",
+        "00000000-0000-0000-0000-000000000101",
+        0,
+        1,
+        "Shared organization document text",
+        "[1.0,0.0,0.0]"
+    )
+
+
+def test_pgvector_search_scopes_to_organization(monkeypatch):
+    cursor = FakeVectorCursor(
+        rows=[
+            (
+                "Shared organization document text",
+                "00000000-0000-0000-0000-000000000101",
+                "00000000-0000-0000-0000-000000000201",
+                0,
+                "00000000-0000-0000-0000-000000000101:0",
+                1,
+                0.12
+            )
+        ]
+    )
+    monkeypatch.setattr("app.ai.vector_store.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.ai.vector_store.psycopg.connect",
+        lambda *_args, **_kwargs: FakeVectorConnection(cursor)
+    )
+
+    results = search_similar(
+        [1.0, 0.0, 0.0],
+        top_k=3,
+        organization_id="00000000-0000-0000-0000-000000000201"
+    )
+    query, params = cursor.statements[0]
+
+    assert "document_embeddings.organization_id = %s::uuid" in query
+    assert params == (
+        "[1.0,0.0,0.0]",
+        "00000000-0000-0000-0000-000000000201",
+        "00000000-0000-0000-0000-000000000201",
+        "[1.0,0.0,0.0]",
+        3
+    )
+    assert results == [
+        {
+            "text": "Shared organization document text",
+            "document_id": "00000000-0000-0000-0000-000000000101",
+            "organization_id": "00000000-0000-0000-0000-000000000201",
+            "chunk_index": 0,
+            "chunk_id": "00000000-0000-0000-0000-000000000101:0",
+            "page_number": 1,
+            "score": 0.12
+        }
+    ]
 
 
 if __name__ == "__main__":

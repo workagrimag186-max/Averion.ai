@@ -233,6 +233,11 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     def fake_update_document_status(document_id, status, error_message=None) -> None:
         status_updates.append((document_id, status, error_message))
 
+    def fake_generate_embeddings(chunks):
+        for chunk in chunks:
+            chunk["embedding"] = [1.0, 0.0, 0.0]
+        return chunks
+
     monkeypatch.setattr(
         "app.services.document_service.is_database_configured",
         lambda: True
@@ -252,6 +257,14 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     monkeypatch.setattr(
         "app.services.document_service.update_document_status",
         fake_update_document_status
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.generate_embeddings",
+        fake_generate_embeddings
+    )
+    monkeypatch.setattr(
+        "app.services.document_service.store_embeddings",
+        lambda chunks: None
     )
 
     original_upload_dir = settings.upload_dir
@@ -281,6 +294,7 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     assert stored_chunks[0].chunk_index == 0
     assert stored_chunks[0].text == "Company policy notes"
     assert stored_chunks[0].token_count == 3
+    assert stored_chunks[0].embedding_id == f"{body['document_id']}:0"
     assert [update[1] for update in status_updates] == ["processing", "ready"]
 
 

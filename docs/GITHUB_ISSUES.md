@@ -367,7 +367,7 @@ Completed Supabase foundation:
 - S5: Documents page lists uploaded documents from Supabase.
 - S6 / issue 46: Vector store metadata links retrieval results to database chunks through `document_id`, `chunk_index`, and `chunk_id`.
 
-This changes the meaning of issues 19-34: do not rebuild metadata/chunk storage. Build on the Supabase tables and Chroma metadata that now exist.
+This changes the meaning of issues 19-34: do not rebuild metadata/chunk storage. Build on the Supabase tables and shared pgvector metadata that now exist.
 
 ### 19. Design chat API response format with citations
 
@@ -375,7 +375,7 @@ Labels: `type:task`, `area:backend`, `area:frontend`, `area:ai-ml`, `priority:p0
 
 Description:
 
-Finalize the request and response shape for chat using the Supabase + Chroma foundation from S1-S6.
+Finalize the request and response shape for chat using the Supabase + pgvector foundation from S1-S6.
 
 Acceptance criteria:
 
