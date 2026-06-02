@@ -45,6 +45,14 @@ export type DocumentListItem = {
 };
 
 
+export type DocumentDeleteResponse = {
+  document_id: string;
+  filename: string;
+  deleted: boolean;
+  detail: string;
+};
+
+
 export type ChatRequest = {
   conversation_id: string | null;
   question: string;
@@ -455,4 +463,25 @@ export async function uploadDocument(file: File): Promise<DocumentUploadResponse
   }
 
   return response.json() as Promise<DocumentUploadResponse>;
+}
+
+
+export async function deleteDocument(documentId: string): Promise<DocumentDeleteResponse> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/documents/${documentId}`, {
+    method: "DELETE",
+    headers: authHeaders
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Document could not be deleted.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<DocumentDeleteResponse>;
 }

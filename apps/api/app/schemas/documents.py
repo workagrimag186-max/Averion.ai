@@ -21,3 +21,10 @@ class DocumentUploadResponse(BaseModel):
     storage_path: str
     metadata_stored: bool = False
     chunks_stored: int = 0
+
+
+class DocumentDeleteResponse(BaseModel):
+    document_id: str
+    filename: str
+    deleted: bool
+    detail: str

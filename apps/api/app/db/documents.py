@@ -40,6 +40,13 @@ class DocumentListRecord:
     updated_at: str
 
 
+@dataclass(frozen=True)
+class DeletedDocumentRecord:
+    document_id: str
+    filename: str
+    storage_path: str
+
+
 class DatabaseNotConfiguredError(RuntimeError):
     pass
 
@@ -190,3 +197,30 @@ def list_documents(organization_id: str) -> list[DocumentListRecord]:
                 )
                 for row in cursor.fetchall()
             ]
+
+
+def delete_document(document_id: str, organization_id: str) -> DeletedDocumentRecord | None:
+    if not is_database_configured():
+        raise DatabaseNotConfiguredError("DATABASE_URL is not configured.")
+
+    with psycopg.connect(settings.database_url, connect_timeout=5) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                delete from documents
+                where id = %s::uuid
+                    and organization_id = %s::uuid
+                returning id::text, filename, storage_path
+                """,
+                (document_id, organization_id)
+            )
+            row = cursor.fetchone()
+
+    if row is None:
+        return None
+
+    return DeletedDocumentRecord(
+        document_id=row[0],
+        filename=row[1],
+        storage_path=row[2]
+    )
