@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     auth_required: bool = False
     upload_dir: str = "./uploads"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    vector_db_path: str | None = None
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     retrieval_top_k: int = 5
     llm_provider: str = "mock"
