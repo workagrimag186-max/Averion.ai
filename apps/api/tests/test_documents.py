@@ -5,7 +5,11 @@ import pytest
 
 from app.core.auth import RequestContext, get_request_context
 from app.core.config import settings
-from app.db.documents import DatabaseNotConfiguredError, DocumentListRecord
+from app.db.documents import (
+    DatabaseNotConfiguredError,
+    DeletedDocumentRecord,
+    DocumentListRecord
+)
 from app.main import app
 
 
@@ -467,3 +471,96 @@ def test_upload_document_returns_503_when_chunk_storage_fails(
         "detail": "Document metadata was stored, but chunks could not be stored."
     }
     assert [update[1] for update in status_updates] == ["processing", "failed"]
+
+
+def test_delete_document_requires_owner_role() -> None:
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000777",
+            user_id="00000000-0000-0000-0000-000000000901",
+            auth_user_id="00000000-0000-0000-0000-000000000902",
+            email="teammate@example.com",
+            role="member",
+            is_authenticated=True
+        )
+
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.delete("/documents/00000000-0000-0000-0000-000000000101")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Only organization owners can delete documents."
+    }
+
+
+def test_delete_document_deletes_owner_organization_document(monkeypatch) -> None:
+    captured_scope = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000777",
+            user_id="00000000-0000-0000-0000-000000000901",
+            auth_user_id="00000000-0000-0000-0000-000000000902",
+            email="owner@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    def fake_delete_document(document_id: str, organization_id: str):
+        captured_scope["document_id"] = document_id
+        captured_scope["organization_id"] = organization_id
+        return DeletedDocumentRecord(
+            document_id=document_id,
+            filename="handbook.pdf",
+            storage_path="uploads/doc/handbook.pdf"
+        )
+
+    monkeypatch.setattr("app.api.documents.delete_document", fake_delete_document)
+    monkeypatch.setattr("app.api.documents._delete_local_document_file", lambda storage_path: None)
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.delete("/documents/00000000-0000-0000-0000-000000000101")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "document_id": "00000000-0000-0000-0000-000000000101",
+        "filename": "handbook.pdf",
+        "deleted": True,
+        "detail": "Document, chunks, and embeddings were deleted."
+    }
+    assert captured_scope == {
+        "document_id": "00000000-0000-0000-0000-000000000101",
+        "organization_id": "00000000-0000-0000-0000-000000000777"
+    }
+
+
+def test_delete_document_returns_404_for_other_organization_document(monkeypatch) -> None:
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000777",
+            user_id="00000000-0000-0000-0000-000000000901",
+            auth_user_id="00000000-0000-0000-0000-000000000902",
+            email="owner@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    monkeypatch.setattr("app.api.documents.delete_document", lambda document_id, organization_id: None)
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.delete("/documents/00000000-0000-0000-0000-000000000101")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Document was not found in your organization."
+    }

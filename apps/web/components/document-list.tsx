@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-import { DocumentListItem, listDocuments } from "@/lib/api";
+import {
+  deleteDocument,
+  DocumentListItem,
+  getAccountProfile,
+  listDocuments
+} from "@/lib/api";
 
 type DocumentStatus = "uploaded" | "processing" | "ready" | "failed";
 
@@ -60,7 +65,10 @@ export function DocumentList({ refreshKey }: DocumentListProps) {
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [viewerRole, setViewerRole] = useState<string | null>(null);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   async function loadDocuments({ showLoader = true } = {}) {
     if (showLoader) {
@@ -81,6 +89,58 @@ export function DocumentList({ refreshKey }: DocumentListProps) {
       setIsRefreshing(false);
     }
   }
+
+  async function handleDeleteDocument(document: DocumentListItem) {
+    const confirmed = window.confirm(
+      `Delete "${document.filename}"? This removes its chunks and embeddings, so chat will no longer use this file.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingDocumentId(document.document_id);
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    try {
+      await deleteDocument(document.document_id);
+      setDocuments((currentDocuments) =>
+        currentDocuments.filter(
+          (currentDocument) => currentDocument.document_id !== document.document_id
+        )
+      );
+      setActionMessage(`Deleted ${document.filename}. Chat will no longer retrieve it.`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not delete document.");
+    } finally {
+      setDeletingDocumentId(null);
+    }
+  }
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    async function loadViewerRole() {
+      try {
+        const profile = await getAccountProfile();
+
+        if (isCurrent) {
+          setViewerRole(profile.role);
+        }
+      } catch {
+        if (isCurrent) {
+          setViewerRole(null);
+        }
+      }
+    }
+
+    loadViewerRole();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isCurrent = true;
@@ -153,6 +213,12 @@ export function DocumentList({ refreshKey }: DocumentListProps) {
         </button>
       </div>
 
+      {actionMessage ? (
+        <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-800">
+          {actionMessage}
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {!isLoading && !errorMessage ? (
           <div className="grid gap-px border-b border-slate-200 bg-slate-200 sm:grid-cols-4">
@@ -222,6 +288,7 @@ export function DocumentList({ refreshKey }: DocumentListProps) {
                   <th className="px-5 py-3">Chunks</th>
                   <th className="px-5 py-3">Uploaded</th>
                   <th className="px-5 py-3">Updated</th>
+                  {viewerRole === "owner" ? <th className="px-5 py-3">Actions</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -273,6 +340,18 @@ export function DocumentList({ refreshKey }: DocumentListProps) {
                       <td className="px-5 py-4 text-slate-600">
                         {formatDate(document.updated_at)}
                       </td>
+                      {viewerRole === "owner" ? (
+                        <td className="px-5 py-4">
+                          <button
+                            className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={deletingDocumentId === document.document_id}
+                            onClick={() => handleDeleteDocument(document)}
+                            type="button"
+                          >
+                            {deletingDocumentId === document.document_id ? "Deleting..." : "Delete"}
+                          </button>
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}
