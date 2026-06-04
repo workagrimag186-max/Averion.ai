@@ -151,6 +151,43 @@ export type TranscriptionResponse = {
   transcript: string;
 };
 
+export type ConversationSummary = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+};
+
+
+export type ConversationMessage = {
+  id: string;
+  role: string;
+  content: string;
+  citations: ChatCitation[];
+  created_at: string;
+};
+
+
+export type ConversationDetail = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages: ConversationMessage[];
+};
+
+
+export type ConversationListResponse = {
+  conversations: ConversationSummary[];
+};
+
+
+export type ConversationDetailResponse = {
+  conversation: ConversationDetail;
+};
+
+
 
 export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionResponse> {
   const formData = new FormData();
@@ -514,4 +551,98 @@ export async function deleteDocument(documentId: string): Promise<DocumentDelete
   }
 
   return response.json() as Promise<DocumentDeleteResponse>;
+}
+
+
+export async function listConversations(): Promise<ConversationListResponse> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/conversations`, {
+    method: "GET",
+    headers: authHeaders,
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not load conversations.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<ConversationListResponse>;
+}
+
+
+export async function getConversation(
+  conversationId: string
+): Promise<ConversationDetailResponse> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}`, {
+    method: "GET",
+    headers: authHeaders,
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not load conversation.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<ConversationDetailResponse>;
+}
+
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}`, {
+    method: "DELETE",
+    headers: authHeaders
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not delete conversation.";
+
+    throw new Error(message);
+  }
+}
+
+
+export async function updateConversationTitle(
+  conversationId: string,
+  title: string
+): Promise<void> {
+  const authHeaders = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/conversations/${conversationId}/title`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders
+      },
+      body: JSON.stringify({ title })
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Could not update conversation title.";
+
+    throw new Error(message);
+  }
 }

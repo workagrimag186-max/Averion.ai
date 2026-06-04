@@ -162,71 +162,72 @@ def log_security_event(
     print(f"[SECURITY] {log_entry}")
 
 
-def validate_retrieval_score(score: float, threshold: float = 0.8) -> bool:
+def validate_retrieval_score(score: float, threshold: float = 1.3) -> bool:
     """
     Validate if a retrieval score meets the minimum threshold.
     
     Args:
         score: Cosine distance score from vector search (0.0 = identical, 2.0 = opposite)
-        threshold: Maximum acceptable cosine distance (default 0.8)
+        threshold: Maximum acceptable cosine distance (default 1.3)
         
     Returns:
         True if score is acceptable (distance <= threshold)
         
-    Score Interpretation (cosine distance):
-        - 0.0 to 0.2: Highly similar (nearly identical semantic meaning)
-        - 0.2 to 0.5: Moderately similar (related content, good match)
-        - 0.5 to 0.8: Somewhat similar (loosely related)
-        - 0.8 to 1.0: Weakly similar (barely related)
-        - 1.0 to 2.0: Dissimilar to opposite (not relevant)
+    Score Interpretation for all-MiniLM-L6-v2 (cosine distance):
+        - 0.0 to 0.4: Highly similar (near duplicates, nearly identical meaning)
+        - 0.4 to 0.8: Moderately similar (related topics, good semantic match)
+        - 0.8 to 1.2: Somewhat similar (loosely related, tangential connection)
+        - 1.2 to 1.5: Weakly similar (barely related, edge cases)
+        - 1.5 to 2.0: Dissimilar to opposite (unrelated content)
         
-    Threshold Guidelines:
-        - 0.3: Very strict (only near-perfect matches)
-        - 0.5: Moderate (good semantic relevance)
-        - 0.8: Permissive (loosely related content) - RECOMMENDED for all-MiniLM-L6-v2
-        - 1.0: Very permissive (accepts weak matches)
+    Threshold Guidelines for all-MiniLM-L6-v2:
+        - 0.5: Very strict (only near-perfect matches)
+        - 0.8: Strict (highly related content only)
+        - 1.0: Moderate (good semantic relevance)
+        - 1.3: Balanced (allows moderately to somewhat similar) - RECOMMENDED
+        - 1.5: Permissive (accepts weakly related content)
         
     Note:
         Lower scores indicate MORE similarity in cosine distance.
         The threshold represents the maximum acceptable distance.
-        The all-MiniLM-L6-v2 model tends to produce higher distances,
-        so a threshold of 0.8 is recommended for practical use.
+        The all-MiniLM-L6-v2 model produces normalized embeddings with
+        higher distances than expected, so 1.3 is optimal for practical RAG.
     """
     return score <= threshold
 
 
 def filter_chunks_by_score(
     chunks: list[dict],
-    threshold: float = 0.8
+    threshold: float = 1.3
 ) -> list[dict]:
     """
     Filter retrieved chunks by cosine distance threshold.
     
     Args:
         chunks: List of retrieved chunks with cosine distance scores
-        threshold: Maximum acceptable cosine distance (default 0.8)
+        threshold: Maximum acceptable cosine distance (default 1.3)
         
     Returns:
         Filtered list of chunks that meet the threshold (score <= threshold)
         
-    Score Semantics:
+    Score Semantics for all-MiniLM-L6-v2:
         - Scores represent cosine distance (0.0 = identical, 2.0 = opposite)
         - Lower scores indicate MORE similarity
         - Threshold is the maximum acceptable distance
         
     Example:
-        With threshold=0.8:
-        - Chunk with score=0.2 → KEPT (highly similar)
-        - Chunk with score=0.5 → KEPT (moderately similar)
-        - Chunk with score=0.7 → KEPT (somewhat similar)
-        - Chunk with score=0.9 → FILTERED OUT (too dissimilar)
+        With threshold=1.3 (recommended for all-MiniLM-L6-v2):
+        - Chunk with score=0.3 → KEPT (highly similar)
+        - Chunk with score=0.7 → KEPT (moderately similar)
+        - Chunk with score=1.1 → KEPT (somewhat similar)
+        - Chunk with score=1.4 → FILTERED OUT (too dissimilar)
         
     Note:
         - Only returns chunks with score <= threshold
         - Preserves original order from vector search
         - Returns empty list if no chunks meet threshold
-        - The all-MiniLM-L6-v2 model produces higher distances,
-          so 0.8 is recommended for practical use
+        - The all-MiniLM-L6-v2 model produces normalized embeddings
+          with higher distances, so 1.3 is optimal for practical RAG
     """
     if not chunks:
         return []
