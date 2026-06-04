@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 
 import { CitationSourcePanel } from "@/components/citation-source-panel";
 import { FeedbackControls } from "@/components/feedback-controls";
-import { ChatCitation, sendChatMessage } from "@/lib/api";
+import { ChatCitation, sendChatMessage, transcribeAudio } from "@/lib/api";
 
 type ChatMessage = {
   id: string;
@@ -13,126 +13,100 @@ type ChatMessage = {
   citations?: ChatCitation[];
 };
 
-function subscribeToSpeechSupport() {
-  return () => {};
-}
-
-function getSpeechSupportSnapshot() {
-  return !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition;
-}
-
-function getServerSpeechSupportSnapshot() {
-  return false;
-}
-
 export function ChatWorkspace() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const canSend = useMemo(() => question.trim().length > 0 && !isSending, [question, isSending]);
-  const speechSupported = useSyncExternalStore(
-    subscribeToSpeechSupport,
-    getSpeechSupportSnapshot,
-    getServerSpeechSupportSnapshot
-  );
-
-  useEffect(() => {
-    if (!speechSupported) return;
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setQuestion(transcript);
-    };
-
-    recognition.onerror = (event: any) => {
-      setIsListening(false);
-      
-      // Don't show errors for common expected cases
-      if (event.error === "no-speech" || event.error === "aborted") {
-        return;
-      }
-      
-      let errorMsg = "Voice input failed";
-      switch (event.error) {
-        case "network":
-          errorMsg = "Network error. Speech recognition requires internet connection.";
-          break;
-        case "not-allowed":
-          errorMsg = "Microphone access denied. Please allow microphone permissions.";
-          break;
-        case "audio-capture":
-          errorMsg = "No microphone found. Please check your device.";
-          break;
-        default:
-          errorMsg = `Voice input error: ${event.error}`;
-      }
-      setErrorMessage(errorMsg);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch (e) {
-          // Ignore abort errors
-        }
-      }
-    };
-  }, [speechSupported]);
+  const microphoneAvailable = useMemo(() => {
+    return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+  }, []);
 
   async function handleMicClick() {
-    if (!recognitionRef.current || isListening) return;
+    if (isRecording) {
+      // Stop recording
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+      return;
+    }
 
     try {
       setErrorMessage(null);
       
       // Request microphone permission
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      recognitionRef.current.start();
+      // Create MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm"
+      });
+      
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        
+        setIsRecording(false);
+        setIsTranscribing(true);
+        
+        try {
+          // Create audio blob
+          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          
+          if (audioBlob.size === 0) {
+            setErrorMessage("Recording is empty. Please try again.");
+            setIsTranscribing(false);
+            return;
+          }
+          
+          // Send to backend for transcription
+          const response = await transcribeAudio(audioBlob);
+          
+          // Set transcript in input field
+          setQuestion(response.transcript);
+          setIsTranscribing(false);
+          
+        } catch (error: any) {
+          setIsTranscribing(false);
+          setErrorMessage(error instanceof Error ? error.message : "Transcription failed. Please try again.");
+        }
+      };
+      
+      mediaRecorder.onerror = () => {
+        setIsRecording(false);
+        setIsTranscribing(false);
+        setErrorMessage("Recording failed. Please try again.");
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      
     } catch (error: any) {
-      setIsListening(false);
+      setIsRecording(false);
       
       if (error.name === "NotAllowedError") {
         setErrorMessage("Microphone access denied. Please allow microphone permissions in your browser.");
       } else if (error.name === "NotFoundError") {
         setErrorMessage("No microphone found. Please check your device.");
       } else {
-        setErrorMessage("Failed to start voice input. Please try again.");
-      }
-    }
-  }
-
-  function handleStopListening() {
-    if (recognitionRef.current && isListening) {
-      try {
-        recognitionRef.current.stop();
-      } catch (error) {
-        setIsListening(false);
+        setErrorMessage("Failed to start recording. Please try again.");
       }
     }
   }
@@ -276,21 +250,21 @@ export function ChatWorkspace() {
                 onChange={(event) => setQuestion(event.target.value)}
                 placeholder="Ask a question about your uploaded documents..."
                 value={question}
-                disabled={isListening}
+                disabled={isRecording || isTranscribing}
               />
-              {speechSupported && (
+              {microphoneAvailable && (
                 <button
                   type="button"
-                  onClick={isListening ? handleStopListening : handleMicClick}
-                  disabled={isSending}
+                  onClick={handleMicClick}
+                  disabled={isSending || isTranscribing}
                   className={`absolute bottom-2 right-2 rounded-md p-2 transition ${
-                    isListening
+                    isRecording
                       ? "bg-red-600 text-white hover:bg-red-700"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   } disabled:cursor-not-allowed disabled:opacity-50`}
-                  title={isListening ? "Stop listening" : "Start voice input"}
+                  title={isRecording ? "Stop recording" : "Start voice input"}
                 >
-                  {isListening ? (
+                  {isRecording ? (
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <rect x="6" y="6" width="12" height="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -301,13 +275,22 @@ export function ChatWorkspace() {
                   )}
                 </button>
               )}
-              {isListening && (
+              {isRecording && (
                 <div className="absolute left-3 top-2 flex items-center gap-2">
                   <span className="flex h-2 w-2">
                     <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-red-400 opacity-75"></span>
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
                   </span>
-                  <span className="text-xs font-medium text-red-600">Listening...</span>
+                  <span className="text-xs font-medium text-red-600">🎤 Recording...</span>
+                </div>
+              )}
+              {isTranscribing && (
+                <div className="absolute left-3 top-2 flex items-center gap-2">
+                  <span className="flex h-2 w-2">
+                    <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
+                  </span>
+                  <span className="text-xs font-medium text-blue-600">⏳ Transcribing...</span>
                 </div>
               )}
             </div>
@@ -319,7 +302,7 @@ export function ChatWorkspace() {
               {isSending ? "Sending..." : "Send"}
             </button>
           </div>
-          {!speechSupported && (
+          {!microphoneAvailable && (
             <p className="mt-2 text-xs text-slate-500">
               Voice input not supported in this browser
             </p>

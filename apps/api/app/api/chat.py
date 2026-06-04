@@ -1,9 +1,17 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.ai.citation_mapper import build_citations
 from app.ai.llm_service import generate_answer
 from app.ai.prompt_builder import build_rag_prompt
 from app.ai.retrieval import retrieve_chunks
+from app.ai.security import (
+    contains_sensitive_data,
+    is_prompt_injection,
+    log_security_event,
+    sanitize_output,
+)
 from app.core.auth import RequestContext, get_request_context
 from app.core.config import settings
 from app.db.chat import ConversationNotFoundError, store_chat_exchange
@@ -23,14 +31,26 @@ async def chat(
     """
     Process a chat question and return an AI-generated answer with citations.
     
+    Security Features:
+    - Prompt injection detection
+    - Similarity threshold filtering
+    - Citation enforcement
+    - Output sanitization
+    - Security audit logging
+    - Organization isolation
+    
     Flow:
-    1. Retrieve relevant document chunks using vector search
-    2. Build RAG prompt with retrieved context
-    3. Generate answer using configured LLM provider
-    4. Return answer with source citations
+    1. Validate and check for prompt injection
+    2. Retrieve relevant document chunks using vector search
+    3. Enforce citation requirements
+    4. Build RAG prompt with retrieved context
+    5. Generate answer using configured LLM provider
+    6. Sanitize output for sensitive data
+    7. Return answer with source citations
     
     Args:
         request: ChatRequest containing the user's question
+        context: Request context with user and organization info
         
     Returns:
         ChatResponse with answer and citations
@@ -43,33 +63,119 @@ async def chat(
         if not request.question or not request.question.strip():
             raise HTTPException(status_code=400, detail="Question cannot be empty")
         
-        # Step 1: Retrieve relevant chunks
+        # PHASE 1: Prompt Injection Protection
+        is_injection, pattern = is_prompt_injection(request.question)
+        if is_injection:
+            log_security_event(
+                event_type="prompt_injection_blocked",
+                question=request.question,
+                details={"pattern": pattern},
+                organization_id=context.organization_id,
+                user_id=context.user_id
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Your question contains suspicious patterns. Please rephrase and try again."
+            )
+        
+        # PHASE 2 & 3: Retrieve relevant chunks with score filtering and organization isolation
         chunks = retrieve_chunks(
             query=request.question,
             top_k=settings.retrieval_top_k,
-            organization_id=context.organization_id
+            organization_id=context.organization_id,
+            min_score=settings.retrieval_min_score
         )
         
-        # Debug: Log retrieved chunks count
-        print(f"[DEBUG] Retrieved {len(chunks)} chunks for query: {request.question[:100]}")
+        # Log retrieval for security audit
+        log_security_event(
+            event_type="retrieval",
+            question=request.question,
+            details={
+                "chunks_retrieved": len(chunks),
+                "top_k": settings.retrieval_top_k,
+                "min_score": settings.retrieval_min_score
+            },
+            organization_id=context.organization_id,
+            user_id=context.user_id
+        )
         
-        # Step 2: Build RAG prompt
+        # PHASE 1: Citation Enforcement
+        # If no chunks pass the threshold, return safe message
+        if not chunks:
+            safe_answer = "I don't have enough information to answer this question. Please try rephrasing or upload relevant documents."
+            
+            log_security_event(
+                event_type="no_context_available",
+                question=request.question,
+                details={"reason": "no_chunks_above_threshold"},
+                organization_id=context.organization_id,
+                user_id=context.user_id
+            )
+            
+            return ChatResponse(
+                conversation_id=request.conversation_id or "new",
+                message_id=str(uuid.uuid4()),
+                answer=safe_answer,
+                citations=[],
+                sources=[]
+            )
+        
+        # Build RAG prompt with security instructions
         prompt = build_rag_prompt(
             question=request.question,
             chunks=chunks
         )
         
-        # Debug: Log prompt sent to LLM
-        print(f"[DEBUG] Prompt sent to LLM (first 500 chars): {prompt[:500]}")
-        
-        # Step 3: Generate answer using LLM
+        # Generate answer using LLM
         # SECURITY: Only the prompt is passed to the LLM
         # No database_url, raw records, or internal config is exposed
         answer = generate_answer(prompt, chunks)
         
-        # Step 4: Build citations from retrieved chunks with enriched metadata
+        # PHASE 4: Output Filtering - Check for sensitive data leakage
+        has_sensitive, sensitive_pattern = contains_sensitive_data(answer)
+        if has_sensitive:
+            log_security_event(
+                event_type="sensitive_data_detected",
+                question=request.question,
+                details={"pattern": sensitive_pattern},
+                organization_id=context.organization_id,
+                user_id=context.user_id
+            )
+            # Sanitize the output
+            answer = sanitize_output(answer)
+        
+        # Build citations from retrieved chunks with enriched metadata
         citation_dicts = build_citations(chunks)
         citations = [ChatCitation(**citation) for citation in citation_dicts]
+        
+        # PHASE 1: Final citation enforcement check
+        if not citations:
+            safe_answer = "I don't have enough information to answer this question."
+            log_security_event(
+                event_type="no_citations_available",
+                question=request.question,
+                organization_id=context.organization_id,
+                user_id=context.user_id
+            )
+            return ChatResponse(
+                conversation_id=request.conversation_id or "new",
+                message_id=str(uuid.uuid4()),
+                answer=safe_answer,
+                citations=[],
+                sources=[]
+            )
+        
+        # Log successful answer generation
+        log_security_event(
+            event_type="answer_generated",
+            question=request.question,
+            details={
+                "citations_count": len(citations),
+                "answer_length": len(answer)
+            },
+            organization_id=context.organization_id,
+            user_id=context.user_id
+        )
 
         stored_messages = store_chat_exchange(
             organization_id=context.organization_id,
