@@ -17,17 +17,17 @@ def retrieve_chunks(
         query: User query text
         top_k: Number of results to return from vector search
         organization_id: Organization ID for multi-tenant isolation
-        min_score: Cosine distance threshold (uses config default if None)
+        min_score: Cosine distance threshold (uses config default 1.3 if None)
         
     Returns:
         List of similar chunks with text, metadata, and cosine distance scores
         Only returns chunks that meet the similarity threshold (score <= min_score)
         
-    Score Semantics:
+    Score Semantics for all-MiniLM-L6-v2:
         - Scores represent cosine distance (0.0 = identical, 2.0 = opposite)
         - Lower scores indicate MORE similarity
         - min_score is the maximum acceptable distance
-        - Default threshold (0.5) filters moderately similar and better chunks
+        - Default threshold (1.3) allows moderately to somewhat similar chunks
         
     Security:
         - Filters results by cosine distance to prevent irrelevant context
@@ -35,11 +35,12 @@ def retrieve_chunks(
         - Returns empty list if no chunks meet threshold
         
     Example:
-        Query: "What is FastAPI?"
-        Results before filtering:
-        - Chunk 1: score=0.15 (highly similar) → KEPT
-        - Chunk 2: score=0.42 (moderately similar) → KEPT
-        - Chunk 3: score=0.68 (loosely related) → FILTERED OUT
+        Query: "What is data management?"
+        Results before filtering (with threshold=1.3):
+        - Chunk 1: score=0.35 (highly similar) → KEPT
+        - Chunk 2: score=0.82 (moderately similar) → KEPT
+        - Chunk 3: score=1.15 (somewhat similar) → KEPT
+        - Chunk 4: score=1.45 (weakly similar) → FILTERED OUT
     """
     # Validate input
     if not query or not query.strip():

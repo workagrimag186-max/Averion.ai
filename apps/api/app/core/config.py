@@ -18,9 +18,18 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 5
     # Cosine distance threshold: 0.0 (identical) to 2.0 (opposite)
     # Lower scores = more similar. Threshold = max acceptable distance.
-    # 0.8 = permissive filtering (allows loosely related content)
-    # Note: all-MiniLM-L6-v2 tends to produce higher distances, so we use 0.8
-    retrieval_min_score: float = 0.8
+    #
+    # IMPORTANT: all-MiniLM-L6-v2 produces NORMALIZED embeddings
+    # Typical score ranges for this model:
+    # - 0.0-0.4: Highly similar (near duplicates)
+    # - 0.4-0.8: Moderately similar (related topics)
+    # - 0.8-1.2: Somewhat similar (loosely related)
+    # - 1.2-1.5: Weakly similar (tangentially related)
+    # - 1.5-2.0: Dissimilar (unrelated)
+    #
+    # Setting to 1.3 allows moderately to somewhat similar content
+    # This is the optimal threshold for practical RAG with this model
+    retrieval_min_score: float = 1.3
     llm_provider: str = "mock"
     llm_provider_api_key: str = ""
     llm_model_name: str = "gpt-4o-mini"

@@ -1,10 +1,16 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
+import { ChatHistorySidebar } from "@/components/chat-history-sidebar";
 import { CitationSourcePanel } from "@/components/citation-source-panel";
 import { FeedbackControls } from "@/components/feedback-controls";
-import { ChatCitation, sendChatMessage, transcribeAudio } from "@/lib/api";
+import {
+  ChatCitation,
+  getConversation,
+  sendChatMessage,
+  transcribeAudio,
+} from "@/lib/api";
 
 type ChatMessage = {
   id: string;
@@ -21,13 +27,66 @@ export function ChatWorkspace() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const canSend = useMemo(() => question.trim().length > 0 && !isSending, [question, isSending]);
+  const canSend = useMemo(
+    () => question.trim().length > 0 && !isSending,
+    [question, isSending]
+  );
   const microphoneAvailable = useMemo(() => {
-    return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+    return (
+      typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia
+    );
   }, []);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function loadConversation(convId: string) {
+    try {
+      setIsLoadingConversation(true);
+      setErrorMessage(null);
+
+      const response = await getConversation(convId);
+      const conversation = response.conversation;
+
+      // Convert messages to ChatMessage format
+      const loadedMessages: ChatMessage[] = conversation.messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+        citations: msg.role === "assistant" ? msg.citations : undefined,
+      }));
+
+      setMessages(loadedMessages);
+      setConversationId(conversation.id);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to load conversation"
+      );
+    } finally {
+      setIsLoadingConversation(false);
+    }
+  }
+
+  function handleNewChat() {
+    setConversationId(null);
+    setMessages([]);
+    setQuestion("");
+    setErrorMessage(null);
+  }
+
+  function handleSelectConversation(convId: string) {
+    if (convId === conversationId) {
+      return; // Already viewing this conversation
+    }
+    loadConversation(convId);
+  }
 
   async function handleMicClick() {
     if (isRecording) {
@@ -154,7 +213,13 @@ export function ChatWorkspace() {
   }
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <section className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
+      <ChatHistorySidebar
+        currentConversationId={conversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewChat={handleNewChat}
+      />
+
       <div className="flex min-h-[560px] flex-col rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="text-base font-semibold text-slate-950">Conversation</h2>
@@ -164,7 +229,15 @@ export function ChatWorkspace() {
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          {messages.length === 0 ? (
+          {isLoadingConversation ? (
+            <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-medium text-slate-700">Loading conversation...</p>
+              <div className="space-y-2">
+                <div className="h-4 w-3/4 rounded bg-slate-200 animate-pulse" />
+                <div className="h-4 w-1/2 rounded bg-slate-200 animate-pulse" />
+              </div>
+            </div>
+          ) : messages.length === 0 ? (
             <div className="rounded-md border border-slate-200 bg-slate-50 p-5">
               <p className="text-sm font-semibold text-slate-800">No messages yet</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
@@ -222,6 +295,8 @@ export function ChatWorkspace() {
               </div>
             </div>
           ) : null}
+
+          <div ref={messagesEndRef} />
 
           {errorMessage ? (
             <div className="rounded-md border border-red-200 bg-red-50 p-4" role="alert">
