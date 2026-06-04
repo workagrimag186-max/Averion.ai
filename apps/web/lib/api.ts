@@ -147,6 +147,36 @@ export type OrganizationInvitation = {
 };
 
 
+export type TranscriptionResponse = {
+  transcript: string;
+};
+
+
+export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionResponse> {
+  const formData = new FormData();
+  formData.append("file", audioBlob, "recording.webm");
+  const authHeaders = await getAuthHeaders();
+
+  const response = await fetch(`${API_BASE_URL}/transcribe`, {
+    method: "POST",
+    headers: authHeaders,
+    body: formData
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.detail === "string"
+        ? body.detail
+        : "Transcription failed. Try again.";
+
+    throw new Error(message);
+  }
+
+  return response.json() as Promise<TranscriptionResponse>;
+}
+
+
 export async function sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
   const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/chat`, {

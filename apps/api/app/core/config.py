@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     vector_db_path: str | None = None
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     retrieval_top_k: int = 5
+    retrieval_min_score: float = 0.7
     llm_provider: str = "mock"
     llm_provider_api_key: str = ""
     llm_model_name: str = "gpt-4o-mini"

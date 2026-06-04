@@ -11,17 +11,14 @@ type CitationSourcePanelProps = {
 };
 
 function getCitationTitle(citation: ChatCitation) {
-  return citation.filename || citation.document_id || "Unknown source";
+  return citation.filename || "Unknown source";
 }
 
 function getCitationLocation(citation: ChatCitation) {
-  const parts = [`Chunk ${citation.chunk_index}`];
-
   if (citation.page_number) {
-    parts.unshift(`Page ${citation.page_number}`);
+    return `Page ${citation.page_number}`;
   }
-
-  return parts.join(" · ");
+  return null;
 }
 
 export function CitationSourcePanel({
@@ -84,6 +81,7 @@ export function CitationSourcePanel({
       {citations.map((citation, index) => {
         const sourceKey = citation.chunk_id || `${citation.document_id}:${citation.chunk_index}:${index}`;
         const isExpanded = expandedIds.has(sourceKey);
+        const location = getCitationLocation(citation);
 
         return (
           <div className="rounded-md border border-slate-200 bg-white" key={sourceKey}>
@@ -93,34 +91,32 @@ export function CitationSourcePanel({
               onClick={() => toggleCitation(sourceKey)}
               type="button"
             >
-              <span>
-                <span className="block text-sm font-semibold text-slate-950">
+              <span className="flex-1">
+                <span className="block text-sm font-medium text-slate-600">
+                  Source {index + 1}
+                </span>
+                <span className="mt-1 block text-sm font-semibold text-slate-950">
                   {getCitationTitle(citation)}
                 </span>
-                <span className="mt-1 block text-xs text-slate-500">
-                  {getCitationLocation(citation)}
-                </span>
+                {location && (
+                  <span className="mt-1 block text-xs text-slate-500">
+                    {location}
+                  </span>
+                )}
               </span>
-              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 font-mono text-xs text-slate-600">
-                {citation.chunk_id || "missing-chunk-id"}
-              </span>
+              <svg
+                className={`h-5 w-5 shrink-0 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
 
             {isExpanded ? (
               <div className="border-t border-slate-100 px-3 py-3">
-                <dl className="grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
-                  <div>
-                    <dt className="font-medium text-slate-700">Document ID</dt>
-                    <dd className="mt-1 break-all font-mono">{citation.document_id || "Unknown"}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-slate-700">Score</dt>
-                    <dd className="mt-1">
-                      {typeof citation.score === "number" ? citation.score.toFixed(4) : "Not available"}
-                    </dd>
-                  </div>
-                </dl>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
                   {citation.snippet || "No source snippet was returned."}
                 </p>
               </div>
