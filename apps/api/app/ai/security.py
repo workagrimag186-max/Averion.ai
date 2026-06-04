@@ -162,41 +162,71 @@ def log_security_event(
     print(f"[SECURITY] {log_entry}")
 
 
-def validate_retrieval_score(score: float, threshold: float = 0.7) -> bool:
+def validate_retrieval_score(score: float, threshold: float = 0.8) -> bool:
     """
     Validate if a retrieval score meets the minimum threshold.
     
     Args:
-        score: Similarity score (lower is better for cosine distance)
-        threshold: Maximum acceptable distance (default 0.7)
+        score: Cosine distance score from vector search (0.0 = identical, 2.0 = opposite)
+        threshold: Maximum acceptable cosine distance (default 0.8)
         
     Returns:
-        True if score is acceptable (below threshold)
+        True if score is acceptable (distance <= threshold)
+        
+    Score Interpretation (cosine distance):
+        - 0.0 to 0.2: Highly similar (nearly identical semantic meaning)
+        - 0.2 to 0.5: Moderately similar (related content, good match)
+        - 0.5 to 0.8: Somewhat similar (loosely related)
+        - 0.8 to 1.0: Weakly similar (barely related)
+        - 1.0 to 2.0: Dissimilar to opposite (not relevant)
+        
+    Threshold Guidelines:
+        - 0.3: Very strict (only near-perfect matches)
+        - 0.5: Moderate (good semantic relevance)
+        - 0.8: Permissive (loosely related content) - RECOMMENDED for all-MiniLM-L6-v2
+        - 1.0: Very permissive (accepts weak matches)
         
     Note:
-        - Uses cosine distance where lower scores = more similar
-        - Threshold of 0.7 means chunks must be reasonably similar
+        Lower scores indicate MORE similarity in cosine distance.
+        The threshold represents the maximum acceptable distance.
+        The all-MiniLM-L6-v2 model tends to produce higher distances,
+        so a threshold of 0.8 is recommended for practical use.
     """
     return score <= threshold
 
 
 def filter_chunks_by_score(
     chunks: list[dict],
-    threshold: float = 0.7
+    threshold: float = 0.8
 ) -> list[dict]:
     """
-    Filter retrieved chunks by similarity score threshold.
+    Filter retrieved chunks by cosine distance threshold.
     
     Args:
-        chunks: List of retrieved chunks with scores
-        threshold: Maximum acceptable distance (default 0.7)
+        chunks: List of retrieved chunks with cosine distance scores
+        threshold: Maximum acceptable cosine distance (default 0.8)
         
     Returns:
-        Filtered list of chunks that meet the threshold
+        Filtered list of chunks that meet the threshold (score <= threshold)
+        
+    Score Semantics:
+        - Scores represent cosine distance (0.0 = identical, 2.0 = opposite)
+        - Lower scores indicate MORE similarity
+        - Threshold is the maximum acceptable distance
+        
+    Example:
+        With threshold=0.8:
+        - Chunk with score=0.2 → KEPT (highly similar)
+        - Chunk with score=0.5 → KEPT (moderately similar)
+        - Chunk with score=0.7 → KEPT (somewhat similar)
+        - Chunk with score=0.9 → FILTERED OUT (too dissimilar)
         
     Note:
         - Only returns chunks with score <= threshold
-        - Preserves original order
+        - Preserves original order from vector search
+        - Returns empty list if no chunks meet threshold
+        - The all-MiniLM-L6-v2 model produces higher distances,
+          so 0.8 is recommended for practical use
     """
     if not chunks:
         return []

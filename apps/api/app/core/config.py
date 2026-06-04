@@ -16,7 +16,11 @@ class Settings(BaseSettings):
     vector_db_path: str | None = None
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     retrieval_top_k: int = 5
-    retrieval_min_score: float = 0.7
+    # Cosine distance threshold: 0.0 (identical) to 2.0 (opposite)
+    # Lower scores = more similar. Threshold = max acceptable distance.
+    # 0.8 = permissive filtering (allows loosely related content)
+    # Note: all-MiniLM-L6-v2 tends to produce higher distances, so we use 0.8
+    retrieval_min_score: float = 0.8
     llm_provider: str = "mock"
     llm_provider_api_key: str = ""
     llm_model_name: str = "gpt-4o-mini"
