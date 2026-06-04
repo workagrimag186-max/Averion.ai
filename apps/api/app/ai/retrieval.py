@@ -58,9 +58,6 @@ def retrieve_chunks(
         organization_id=scoped_org_id
     )
     
-    # Log retrieval for debugging multi-user access
-    print(f"[RETRIEVAL] org_id={scoped_org_id}, query='{query[:50]}...', results_count={len(results)}")
-    
     # Format output
     output = []
     for result in results:
