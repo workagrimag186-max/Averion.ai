@@ -10,7 +10,6 @@ from pathlib import Path
 
 from app.core.config import settings
 
-
 def transcribe_audio(audio_data: bytes, filename: str = "audio.webm") -> str:
     """
     Transcribe audio using Groq Whisper API.

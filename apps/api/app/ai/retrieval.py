@@ -15,55 +15,66 @@ def retrieve_chunks(
     
     Args:
         query: User query text
-        top_k: Number of results to return
+        top_k: Number of results to return from vector search
         organization_id: Organization ID for multi-tenant isolation
-        min_score: Minimum similarity score threshold (uses config default if None)
+        min_score: Cosine distance threshold (uses config default if None)
         
     Returns:
-        List of similar chunks with text, metadata, and scores
-        Only returns chunks that meet the similarity threshold
+        List of similar chunks with text, metadata, and cosine distance scores
+        Only returns chunks that meet the similarity threshold (score <= min_score)
+        
+    Score Semantics:
+        - Scores represent cosine distance (0.0 = identical, 2.0 = opposite)
+        - Lower scores indicate MORE similarity
+        - min_score is the maximum acceptable distance
+        - Default threshold (0.5) filters moderately similar and better chunks
         
     Security:
-        - Filters results by similarity score to prevent irrelevant context
+        - Filters results by cosine distance to prevent irrelevant context
         - Enforces organization boundaries for multi-tenant isolation
         - Returns empty list if no chunks meet threshold
+        
+    Example:
+        Query: "What is FastAPI?"
+        Results before filtering:
+        - Chunk 1: score=0.15 (highly similar) → KEPT
+        - Chunk 2: score=0.42 (moderately similar) → KEPT
+        - Chunk 3: score=0.68 (loosely related) → FILTERED OUT
     """
-    try:
-        # Validate input
-        if not query or not query.strip():
-            return []
-        
-        # Generate query embedding
-        query_embedding = embed_text(query)
-        
-        # Call vector search with organization isolation
-        results = search_similar(
-            query_embedding,
-            top_k,
-            organization_id=organization_id or settings.default_organization_id
-        )
-        
-        # Format output
-        output = []
-        for result in results:
-            output.append({
-                "text": result["text"],
-                "document_id": result["document_id"],
-                "organization_id": result["organization_id"],
-                "chunk_index": result["chunk_index"],
-                "chunk_id": result["chunk_id"],
-                "page_number": result["page_number"],
-                "score": result["score"]
-            })
-        
-        # Apply similarity threshold filtering
-        threshold = min_score if min_score is not None else settings.retrieval_min_score
-        filtered_output = filter_chunks_by_score(output, threshold)
-        
-        return filtered_output
-        
-    except Exception as e:
-        # Return empty list on error
+    # Validate input
+    if not query or not query.strip():
         return []
+    
+    # Generate query embedding
+    query_embedding = embed_text(query)
+    
+    # Determine organization scope
+    scoped_org_id = organization_id or settings.default_organization_id
+    
+    # Call vector search with organization isolation
+    results = search_similar(
+        query_embedding,
+        top_k,
+        organization_id=scoped_org_id
+    )
+    
+    # Format output
+    output = []
+    for result in results:
+        output.append({
+            "text": result["text"],
+            "document_id": result["document_id"],
+            "organization_id": result["organization_id"],
+            "chunk_index": result["chunk_index"],
+            "chunk_id": result["chunk_id"],
+            "page_number": result["page_number"],
+            "score": result["score"]
+        })
+    
+    # Apply cosine distance threshold filtering
+    threshold = min_score if min_score is not None else settings.retrieval_min_score
+    filtered_output = filter_chunks_by_score(output, threshold)
+    
+    return filtered_output
 
 # Made with Bob

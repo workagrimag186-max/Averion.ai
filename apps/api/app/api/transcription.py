@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from app.ai.transcription_service import transcribe_audio
 
-
 router = APIRouter(prefix="/transcribe", tags=["transcription"])
 
 

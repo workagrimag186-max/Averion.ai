@@ -194,6 +194,9 @@ async def chat(
             sources=chunks
         )
         
+    except HTTPException:
+        # Re-raise HTTPException (includes prompt injection blocks, validation errors, etc.)
+        raise
     except ValueError as e:
         # Handle LLM provider errors
         raise HTTPException(status_code=500, detail=str(e))
