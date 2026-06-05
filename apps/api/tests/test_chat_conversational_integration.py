@@ -29,9 +29,21 @@ def client():
 
 @pytest.fixture(autouse=True)
 def mock_auth(monkeypatch):
-    """Mock authentication for all tests."""
+    """Mock authentication and database for all tests."""
     from app.api import chat
+    from app.db.chat import StoredChatMessages
+    
     monkeypatch.setattr(chat, "get_request_context", lambda: mock_get_request_context())
+    
+    # Mock store_chat_exchange to avoid database calls
+    def mock_store_chat_exchange(**kwargs):
+        return StoredChatMessages(
+            conversation_id="test-conv-123",
+            user_message_id="test-msg-user-123",
+            assistant_message_id="test-msg-assistant-123"
+        )
+    
+    monkeypatch.setattr(chat, "store_chat_exchange", mock_store_chat_exchange)
 
 
 class TestChatConversationalIntegration:
