@@ -3,6 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.ai.citation_mapper import build_citations
+from app.ai.conversational import (
+    generate_conversational_response,
+    is_conversational_query,
+)
 from app.ai.llm_service import generate_answer
 from app.ai.prompt_builder import build_rag_prompt
 from app.ai.retrieval import retrieve_chunks
@@ -63,6 +67,42 @@ async def chat(
         if not request.question or not request.question.strip():
             raise HTTPException(status_code=400, detail="Question cannot be empty")
         
+        # PHASE 0: Conversational Query Detection
+        # Check if this is a casual conversation rather than a document question
+        is_conversational, intent_type = is_conversational_query(request.question)
+        
+        if is_conversational:
+            # Generate friendly conversational response
+            conversational_answer = generate_conversational_response(intent_type, request.question)
+            
+            # Log conversational interaction
+            log_security_event(
+                event_type="conversational_response",
+                question=request.question,
+                details={"intent_type": intent_type},
+                organization_id=context.organization_id,
+                user_id=context.user_id
+            )
+            
+            # Store the exchange in chat history
+            stored_messages = store_chat_exchange(
+                organization_id=context.organization_id,
+                user_id=context.user_id,
+                conversation_id=request.conversation_id,
+                question=request.question.strip(),
+                answer=conversational_answer,
+                citations=[]
+            )
+            
+            # Return conversational response without citations
+            return ChatResponse(
+                conversation_id=stored_messages.conversation_id,
+                message_id=stored_messages.assistant_message_id,
+                answer=conversational_answer,
+                citations=[],
+                sources=[]
+            )
+        
         # PHASE 1: Prompt Injection Protection
         is_injection, pattern = is_prompt_injection(request.question)
         if is_injection:
@@ -120,10 +160,11 @@ async def chat(
                 sources=[]
             )
         
-        # Build RAG prompt with security instructions
+        # Build RAG prompt with security instructions and language preference
         prompt = build_rag_prompt(
             question=request.question,
-            chunks=chunks
+            chunks=chunks,
+            language=request.language
         )
         
         # Generate answer using LLM
@@ -205,8 +246,14 @@ async def chat(
     except ConversationNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
-        # Log error in production
-        print(f"Chat error: {str(e)}")
+        # Log error in production with UTF-8 support
+        try:
+            print(f"Chat error: {str(e)}", flush=True)
+        except UnicodeEncodeError:
+            import sys
+            error_msg = f"Chat error: {str(e)}"
+            sys.stdout.buffer.write(error_msg.encode('utf-8', errors='ignore') + b'\n')
+            sys.stdout.buffer.flush()
         raise HTTPException(
             status_code=500,
             detail="Failed to process chat request. Please try again."

@@ -7,6 +7,7 @@ import { CitationSourcePanel } from "@/components/citation-source-panel";
 import { FeedbackControls } from "@/components/feedback-controls";
 import {
   ChatCitation,
+  getAccountProfile,
   getConversation,
   sendChatMessage,
   transcribeAudio,
@@ -28,6 +29,7 @@ export function ChatWorkspace() {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+  const [userLanguage, setUserLanguage] = useState<string>("en");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -40,6 +42,22 @@ export function ChatWorkspace() {
     return (
       typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia
     );
+  }, []);
+
+  // Fetch user's language preference on mount
+  useEffect(() => {
+    async function fetchLanguagePreference() {
+      try {
+        const profile = await getAccountProfile();
+        if (profile.language_preference) {
+          setUserLanguage(profile.language_preference);
+        }
+      } catch (error) {
+        // Silently fail, default to English
+        console.error("Failed to fetch language preference:", error);
+      }
+    }
+    fetchLanguagePreference();
   }, []);
 
   // Scroll to bottom when messages change
@@ -133,8 +151,8 @@ export function ChatWorkspace() {
             return;
           }
           
-          // Send to backend for transcription
-          const response = await transcribeAudio(audioBlob);
+          // Send to backend for transcription with user's language
+          const response = await transcribeAudio(audioBlob, userLanguage);
           
           // Set transcript in input field
           setQuestion(response.transcript);
@@ -192,7 +210,8 @@ export function ChatWorkspace() {
     try {
       const response = await sendChatMessage({
         conversation_id: conversationId,
-        question: trimmedQuestion
+        question: trimmedQuestion,
+        language: userLanguage
       });
 
       setConversationId(response.conversation_id);

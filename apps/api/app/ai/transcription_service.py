@@ -3,6 +3,7 @@ Transcription Service
 
 Provides speech-to-text transcription using Groq Whisper API.
 Replaces browser-based SpeechRecognition with production-grade server-side transcription.
+Supports multi-language transcription.
 """
 
 import tempfile
@@ -10,13 +11,25 @@ from pathlib import Path
 
 from app.core.config import settings
 
-def transcribe_audio(audio_data: bytes, filename: str = "audio.webm") -> str:
+# Language code mapping for Whisper API
+# Whisper uses ISO 639-1 codes
+SUPPORTED_LANGUAGES = {
+    "en": "en",  # English
+    "hi": "hi",  # Hindi
+    "es": "es",  # Spanish
+    "fr": "fr",  # French
+    "de": "de",  # German
+    "ja": "ja"   # Japanese
+}
+
+def transcribe_audio(audio_data: bytes, filename: str = "audio.webm", language: str = "en") -> str:
     """
-    Transcribe audio using Groq Whisper API.
+    Transcribe audio using Groq Whisper API with language support.
     
     Args:
         audio_data: Raw audio file bytes
         filename: Original filename (used to determine format)
+        language: ISO 639-1 language code (en, hi, es, fr, de, ja)
         
     Returns:
         Transcribed text
@@ -63,10 +76,26 @@ def transcribe_audio(audio_data: bytes, filename: str = "audio.webm") -> str:
             # Open file and send to Groq Whisper
             with open(temp_file_path, "rb") as audio_file:
                 # Use Whisper large v3 model (most accurate)
+                # Set language for better accuracy
+                whisper_language = SUPPORTED_LANGUAGES.get(language, "en")
+                
+                # Create prompt to encourage staying in original language
+                language_names = {
+                    "en": "English",
+                    "hi": "Hindi",
+                    "es": "Spanish",
+                    "fr": "French",
+                    "de": "German",
+                    "ja": "Japanese"
+                }
+                prompt_text = f"Transcribe this audio in {language_names.get(language, 'English')}. Do not translate."
+                
                 transcription = client.audio.transcriptions.create(
                     model="whisper-large-v3",
                     file=audio_file,
-                    response_format="text"
+                    response_format="text",
+                    language=whisper_language,  # Specify language for better accuracy
+                    prompt=prompt_text  # Encourage staying in original language
                 )
             
             # Extract transcript

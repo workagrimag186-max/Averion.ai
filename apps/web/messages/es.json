@@ -1,0 +1,92 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "search": "Buscar",
+    "logout": "Cerrar sesión"
+  },
+  "navigation": {
+    "dashboard": "Panel",
+    "chat": "Chat",
+    "documents": "Documentos",
+    "account": "Cuenta",
+    "settings": "Configuración"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "signup": "Registrarse",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "noAccount": "¿No tienes una cuenta?",
+    "hasAccount": "¿Ya tienes una cuenta?",
+    "loginButton": "Iniciar sesión",
+    "signupButton": "Crear cuenta"
+  },
+  "chat": {
+    "title": "Chat",
+    "newChat": "Nuevo chat",
+    "placeholder": "Haz una pregunta...",
+    "send": "Enviar",
+    "voiceInput": "Entrada de voz",
+    "listening": "Escuchando...",
+    "processing": "Procesando...",
+    "noCitations": "No hay fuentes disponibles",
+    "sources": "Fuentes",
+    "feedback": {
+      "helpful": "Útil",
+      "notHelpful": "No útil",
+      "thankYou": "¡Gracias por tu comentario!"
+    }
+  },
+  "documents": {
+    "title": "Documentos",
+    "upload": "Subir documento",
+    "uploadButton": "Elegir archivo",
+    "uploading": "Subiendo...",
+    "processing": "Procesando...",
+    "ready": "Listo",
+    "failed": "Fallido",
+    "noDocuments": "Aún no se han subido documentos",
+    "dragDrop": "Arrastra y suelta archivos aquí o haz clic para explorar",
+    "supportedFormats": "Formatos compatibles: PDF, TXT, DOCX"
+  },
+  "account": {
+    "title": "Configuración de cuenta",
+    "profile": "Perfil",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "jobTitle": "Título del trabajo",
+    "language": "Idioma",
+    "languageDescription": "Selecciona tu idioma preferido para la interfaz y el chatbot",
+    "organization": "Organización",
+    "organizationName": "Nombre de la organización",
+    "team": "Equipo",
+    "role": "Rol",
+    "owner": "Propietario",
+    "member": "Miembro",
+    "updateProfile": "Actualizar perfil",
+    "profileUpdated": "Perfil actualizado correctamente"
+  },
+  "languages": {
+    "en": "Inglés",
+    "hi": "Hindi",
+    "es": "Español",
+    "fr": "Francés",
+    "de": "Alemán",
+    "ja": "Japonés"
+  },
+  "errors": {
+    "generic": "Algo salió mal. Por favor, inténtalo de nuevo.",
+    "network": "Error de red. Por favor, verifica tu conexión.",
+    "unauthorized": "No estás autorizado para realizar esta acción.",
+    "notFound": "No se encontró el recurso solicitado.",
+    "validation": "Por favor, verifica tu entrada e inténtalo de nuevo."
+  }
+}

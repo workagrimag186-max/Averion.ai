@@ -159,7 +159,15 @@ def log_security_event(
         log_entry["details"] = safe_details
     
     # Print structured log (in production, send to logging service)
-    print(f"[SECURITY] {log_entry}")
+    # Use UTF-8 encoding to handle Unicode characters (Hindi, etc.)
+    try:
+        print(f"[SECURITY] {log_entry}", flush=True)
+    except UnicodeEncodeError:
+        # Fallback: encode to UTF-8 and ignore errors
+        import sys
+        log_str = f"[SECURITY] {log_entry}"
+        sys.stdout.buffer.write(log_str.encode('utf-8', errors='ignore') + b'\n')
+        sys.stdout.buffer.flush()
 
 
 def validate_retrieval_score(score: float, threshold: float = 1.3) -> bool:

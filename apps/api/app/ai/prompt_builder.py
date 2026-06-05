@@ -4,10 +4,20 @@ RAG Prompt Builder
 Builds structured prompts for LLM using retrieved document chunks.
 """
 
+# Language name mapping for natural language instructions
+LANGUAGE_NAMES = {
+    "en": "English",
+    "hi": "Hindi",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "ja": "Japanese"
+}
 
-def build_rag_prompt(question: str, chunks: list[dict]) -> str:
+
+def build_rag_prompt(question: str, chunks: list[dict], language: str = "en") -> str:
     """
-    Build a structured RAG prompt for an LLM.
+    Build a structured RAG prompt for an LLM with language support.
 
     Args:
         question: User query string
@@ -16,6 +26,7 @@ def build_rag_prompt(question: str, chunks: list[dict]) -> str:
             - chunk_index: int
             - chunk_id: str
             - text: str
+        language: ISO 639-1 language code (en, hi, es, fr, de, ja)
 
     Returns:
         Formatted prompt string with instructions, context, and question
@@ -29,11 +40,16 @@ def build_rag_prompt(question: str, chunks: list[dict]) -> str:
         ...         "text": "FastAPI is a modern web framework..."
         ...     }
         ... ]
-        >>> prompt = build_rag_prompt("What is FastAPI?", chunks)
+        >>> prompt = build_rag_prompt("What is FastAPI?", chunks, "en")
     """
+    # Get language name for instructions
+    language_name = LANGUAGE_NAMES.get(language, "English")
+    
     # Build the prompt header with clear instructions and security rules
     prompt_parts = [
         "You are a helpful AI assistant.",
+        "",
+        f"LANGUAGE INSTRUCTION: Always respond in {language_name}. The user's preferred language is {language_name}.",
         "",
         "IMPORTANT SECURITY RULES:",
         "- Answer ONLY using the context provided below",

@@ -49,6 +49,7 @@ export function AccountSummary() {
   const [invitations, setInvitations] = useState<OrganizationInvitation[]>([]);
   const [name, setName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+  const [languagePreference, setLanguagePreference] = useState("en");
   const [organizationName, setOrganizationName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -96,6 +97,7 @@ export function AccountSummary() {
         setInvitations(nextInvitations);
         setName(nextProfile.name ?? "");
         setJobTitle(nextProfile.job_title ?? "");
+        setLanguagePreference(nextProfile.language_preference ?? "en");
         setOrganizationName(nextTeam.organization_name);
       } catch (error) {
         if (ignore) {
@@ -132,12 +134,14 @@ export function AccountSummary() {
     try {
       const updatedProfile = await updateAccountProfile({
         name: name.trim() || null,
-        job_title: jobTitle.trim() || null
+        job_title: jobTitle.trim() || null,
+        language_preference: languagePreference
       });
 
       setProfile(updatedProfile);
       setName(updatedProfile.name ?? "");
       setJobTitle(updatedProfile.job_title ?? "");
+      setLanguagePreference(updatedProfile.language_preference ?? "en");
       setStatus({
         kind: "success",
         message: "Profile updated."
@@ -406,6 +410,27 @@ export function AccountSummary() {
               type="text"
               value={jobTitle}
             />
+          </label>
+
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-slate-700">
+              Language
+            </span>
+            <select
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              onChange={(event) => setLanguagePreference(event.target.value)}
+              value={languagePreference}
+            >
+              <option value="en">English</option>
+              <option value="hi">Hindi (हिंदी)</option>
+              <option value="es">Spanish (Español)</option>
+              <option value="fr">French (Français)</option>
+              <option value="de">German (Deutsch)</option>
+              <option value="ja">Japanese (日本語)</option>
+            </select>
+            <p className="text-xs text-slate-500">
+              Select your preferred language for the interface and chatbot
+            </p>
           </label>
 
           <div className="flex flex-wrap items-center gap-3">

@@ -13,11 +13,13 @@ class AccountProfileResponse(BaseModel):
     avatar_url: str | None
     job_title: str | None
     role: str | None
+    language_preference: str = "en"
 
 
 class AccountProfileUpdateRequest(BaseModel):
     name: str | None = Field(default=None, max_length=120)
     job_title: str | None = Field(default=None, max_length=120)
+    language_preference: str | None = Field(default=None, pattern="^(en|hi|es|fr|de|ja)$")
 
     @field_validator("name", "job_title")
     @classmethod
