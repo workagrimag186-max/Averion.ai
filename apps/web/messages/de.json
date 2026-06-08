@@ -30,7 +30,9 @@
     "signupButton": "Konto erstellen"
   },
   "chat": {
+    "eyebrow": "KI-Assistent",
     "title": "Chat",
+    "description": "Stellen Sie Fragen zu Ihren Dokumenten und erhalten Sie sofortige Antworten",
     "newChat": "Neuer Chat",
     "placeholder": "Stellen Sie eine Frage...",
     "send": "Senden",
@@ -46,7 +48,9 @@
     }
   },
   "documents": {
+    "eyebrow": "Wissensdatenbank",
     "title": "Dokumente",
+    "description": "Laden Sie Ihre Dokumentenbibliothek hoch und verwalten Sie sie",
     "upload": "Dokument hochladen",
     "uploadButton": "Datei auswählen",
     "uploading": "Hochladen...",
@@ -58,7 +62,9 @@
     "supportedFormats": "Unterstützte Formate: PDF, TXT, DOCX"
   },
   "account": {
+    "eyebrow": "Einstellungen",
     "title": "Kontoeinstellungen",
+    "description": "Verwalten Sie Ihr Profil und Ihre Einstellungen",
     "profile": "Profil",
     "name": "Name",
     "email": "E-Mail",

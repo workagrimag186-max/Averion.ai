@@ -30,7 +30,9 @@
     "signupButton": "Create Account"
   },
   "chat": {
+    "eyebrow": "AI Assistant",
     "title": "Chat",
+    "description": "Ask questions about your documents and get instant answers",
     "newChat": "New Chat",
     "placeholder": "Ask a question...",
     "send": "Send",
@@ -46,7 +48,9 @@
     }
   },
   "documents": {
+    "eyebrow": "Knowledge Base",
     "title": "Documents",
+    "description": "Upload and manage your document library",
     "upload": "Upload Document",
     "uploadButton": "Choose File",
     "uploading": "Uploading...",
@@ -58,7 +62,9 @@
     "supportedFormats": "Supported formats: PDF, TXT, DOCX"
   },
   "account": {
+    "eyebrow": "Settings",
     "title": "Account Settings",
+    "description": "Manage your profile and preferences",
     "profile": "Profile",
     "name": "Name",
     "email": "Email",

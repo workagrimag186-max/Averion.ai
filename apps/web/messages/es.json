@@ -30,7 +30,9 @@
     "signupButton": "Crear cuenta"
   },
   "chat": {
+    "eyebrow": "Asistente IA",
     "title": "Chat",
+    "description": "Haz preguntas sobre tus documentos y obtén respuestas instantáneas",
     "newChat": "Nuevo chat",
     "placeholder": "Haz una pregunta...",
     "send": "Enviar",
@@ -46,7 +48,9 @@
     }
   },
   "documents": {
+    "eyebrow": "Base de Conocimiento",
     "title": "Documentos",
+    "description": "Sube y gestiona tu biblioteca de documentos",
     "upload": "Subir documento",
     "uploadButton": "Elegir archivo",
     "uploading": "Subiendo...",

@@ -30,7 +30,9 @@
     "signupButton": "アカウント作成"
   },
   "chat": {
+    "eyebrow": "AIアシスタント",
     "title": "チャット",
+    "description": "ドキュメントについて質問して即座に回答を得る",
     "newChat": "新しいチャット",
     "placeholder": "質問を入力してください...",
     "send": "送信",
@@ -46,7 +48,9 @@
     }
   },
   "documents": {
+    "eyebrow": "ナレッジベース",
     "title": "ドキュメント",
+    "description": "ドキュメントライブラリをアップロードして管理",
     "upload": "ドキュメントをアップロード",
     "uploadButton": "ファイルを選択",
     "uploading": "アップロード中...",
@@ -58,7 +62,9 @@
     "supportedFormats": "対応形式：PDF、TXT、DOCX"
   },
   "account": {
+    "eyebrow": "設定",
     "title": "アカウント設定",
+    "description": "プロフィールと設定を管理",
     "profile": "プロフィール",
     "name": "名前",
     "email": "メール",
