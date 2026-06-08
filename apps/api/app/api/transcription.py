@@ -19,16 +19,18 @@ class TranscriptionResponse(BaseModel):
 
 @router.post("", response_model=TranscriptionResponse)
 async def transcribe_audio_file(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    language: str = "en"
 ) -> TranscriptionResponse:
     """
-    Transcribe audio file to text using Groq Whisper.
+    Transcribe audio file to text using Groq Whisper with language support.
     
     Accepts audio files in formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm
     Maximum file size: 25MB
     
     Args:
         file: Audio file to transcribe
+        language: ISO 639-1 language code (en, hi, es, fr, de, ja). Default: en
         
     Returns:
         TranscriptionResponse with transcript text
@@ -64,8 +66,8 @@ async def transcribe_audio_file(
                 detail="Audio file is empty"
             )
         
-        # Transcribe using Groq Whisper
-        transcript = transcribe_audio(audio_data, file.filename)
+        # Transcribe using Groq Whisper with language support
+        transcript = transcribe_audio(audio_data, file.filename, language)
         
         return TranscriptionResponse(transcript=transcript)
         

@@ -56,6 +56,7 @@ export type DocumentDeleteResponse = {
 export type ChatRequest = {
   conversation_id: string | null;
   question: string;
+  language?: string;
 };
 
 
@@ -108,12 +109,14 @@ export type AccountProfile = {
   avatar_url: string | null;
   job_title: string | null;
   role: string | null;
+  language_preference?: string;
 };
 
 
 export type AccountProfileUpdate = {
   name: string | null;
   job_title: string | null;
+  language_preference?: string;
 };
 
 
@@ -189,12 +192,12 @@ export type ConversationDetailResponse = {
 
 
 
-export async function transcribeAudio(audioBlob: Blob): Promise<TranscriptionResponse> {
+export async function transcribeAudio(audioBlob: Blob, language: string = "en"): Promise<TranscriptionResponse> {
   const formData = new FormData();
   formData.append("file", audioBlob, "recording.webm");
   const authHeaders = await getAuthHeaders();
 
-  const response = await fetch(`${API_BASE_URL}/transcribe`, {
+  const response = await fetch(`${API_BASE_URL}/transcribe?language=${language}`, {
     method: "POST",
     headers: authHeaders,
     body: formData

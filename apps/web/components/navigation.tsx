@@ -3,24 +3,26 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import {
   getSupabaseBrowserClient,
   getSupabaseSessionSafely
 } from "@/lib/supabase";
 
-const links = [
-  { href: "/", label: "Overview" },
-  { href: "/documents", label: "Documents" },
-  { href: "/chat", label: "Chat" },
-  { href: "/account", label: "Account" }
-];
-
 export function Navigation() {
+  const t = useTranslations("navigation");
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const links = [
+    { href: "/", label: t("overview") },
+    { href: "/documents", label: t("documents") },
+    { href: "/chat", label: t("chat") },
+    { href: "/account", label: t("account") }
+  ];
 
   useEffect(() => {
     if (!supabase) {
@@ -92,7 +94,7 @@ export function Navigation() {
           onClick={handleLogout}
           type="button"
         >
-          {isSigningOut ? "Signing out..." : "Logout"}
+          {isSigningOut ? t("signingOut") : t("logout")}
         </button>
       </div>
     </nav>

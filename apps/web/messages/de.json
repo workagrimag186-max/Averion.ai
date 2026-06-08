@@ -1,0 +1,98 @@
+{
+  "common": {
+    "loading": "Laden...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "search": "Suchen",
+    "logout": "Abmelden"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "chat": "Chat",
+    "documents": "Dokumente",
+    "account": "Konto",
+    "settings": "Einstellungen"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "signup": "Registrieren",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "forgotPassword": "Passwort vergessen?",
+    "noAccount": "Noch kein Konto?",
+    "hasAccount": "Bereits ein Konto?",
+    "loginButton": "Anmelden",
+    "signupButton": "Konto erstellen"
+  },
+  "chat": {
+    "eyebrow": "KI-Assistent",
+    "title": "Chat",
+    "description": "Stellen Sie Fragen zu Ihren Dokumenten und erhalten Sie sofortige Antworten",
+    "newChat": "Neuer Chat",
+    "placeholder": "Stellen Sie eine Frage...",
+    "send": "Senden",
+    "voiceInput": "Spracheingabe",
+    "listening": "Hört zu...",
+    "processing": "Verarbeitung...",
+    "noCitations": "Keine Quellen verfügbar",
+    "sources": "Quellen",
+    "feedback": {
+      "helpful": "Hilfreich",
+      "notHelpful": "Nicht hilfreich",
+      "thankYou": "Vielen Dank für Ihr Feedback!"
+    }
+  },
+  "documents": {
+    "eyebrow": "Wissensdatenbank",
+    "title": "Dokumente",
+    "description": "Laden Sie Ihre Dokumentenbibliothek hoch und verwalten Sie sie",
+    "upload": "Dokument hochladen",
+    "uploadButton": "Datei auswählen",
+    "uploading": "Hochladen...",
+    "processing": "Verarbeitung...",
+    "ready": "Bereit",
+    "failed": "Fehlgeschlagen",
+    "noDocuments": "Noch keine Dokumente hochgeladen",
+    "dragDrop": "Dateien hier ablegen oder zum Durchsuchen klicken",
+    "supportedFormats": "Unterstützte Formate: PDF, TXT, DOCX"
+  },
+  "account": {
+    "eyebrow": "Einstellungen",
+    "title": "Kontoeinstellungen",
+    "description": "Verwalten Sie Ihr Profil und Ihre Einstellungen",
+    "profile": "Profil",
+    "name": "Name",
+    "email": "E-Mail",
+    "jobTitle": "Berufsbezeichnung",
+    "language": "Sprache",
+    "languageDescription": "Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche und den Chatbot",
+    "organization": "Organisation",
+    "organizationName": "Organisationsname",
+    "team": "Team",
+    "role": "Rolle",
+    "owner": "Eigentümer",
+    "member": "Mitglied",
+    "updateProfile": "Profil aktualisieren",
+    "profileUpdated": "Profil erfolgreich aktualisiert"
+  },
+  "languages": {
+    "en": "Englisch",
+    "hi": "Hindi",
+    "es": "Spanisch",
+    "fr": "Französisch",
+    "de": "Deutsch",
+    "ja": "Japanisch"
+  },
+  "errors": {
+    "generic": "Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.",
+    "network": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.",
+    "unauthorized": "Sie sind nicht berechtigt, diese Aktion auszuführen.",
+    "notFound": "Die angeforderte Ressource wurde nicht gefunden.",
+    "validation": "Bitte überprüfen Sie Ihre Eingabe und versuchen Sie es erneut."
+  }
+}

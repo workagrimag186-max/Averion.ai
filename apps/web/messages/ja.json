@@ -1,0 +1,98 @@
+{
+  "common": {
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "cancel": "キャンセル",
+    "save": "保存",
+    "delete": "削除",
+    "edit": "編集",
+    "close": "閉じる",
+    "search": "検索",
+    "logout": "ログアウト"
+  },
+  "navigation": {
+    "dashboard": "ダッシュボード",
+    "chat": "チャット",
+    "documents": "ドキュメント",
+    "account": "アカウント",
+    "settings": "設定"
+  },
+  "auth": {
+    "login": "ログイン",
+    "signup": "サインアップ",
+    "email": "メール",
+    "password": "パスワード",
+    "forgotPassword": "パスワードをお忘れですか？",
+    "noAccount": "アカウントをお持ちでないですか？",
+    "hasAccount": "すでにアカウントをお持ちですか？",
+    "loginButton": "サインイン",
+    "signupButton": "アカウント作成"
+  },
+  "chat": {
+    "eyebrow": "AIアシスタント",
+    "title": "チャット",
+    "description": "ドキュメントについて質問して即座に回答を得る",
+    "newChat": "新しいチャット",
+    "placeholder": "質問を入力してください...",
+    "send": "送信",
+    "voiceInput": "音声入力",
+    "listening": "聞いています...",
+    "processing": "処理中...",
+    "noCitations": "ソースがありません",
+    "sources": "ソース",
+    "feedback": {
+      "helpful": "役に立った",
+      "notHelpful": "役に立たなかった",
+      "thankYou": "フィードバックありがとうございます！"
+    }
+  },
+  "documents": {
+    "eyebrow": "ナレッジベース",
+    "title": "ドキュメント",
+    "description": "ドキュメントライブラリをアップロードして管理",
+    "upload": "ドキュメントをアップロード",
+    "uploadButton": "ファイルを選択",
+    "uploading": "アップロード中...",
+    "processing": "処理中...",
+    "ready": "準備完了",
+    "failed": "失敗",
+    "noDocuments": "まだドキュメントがアップロードされていません",
+    "dragDrop": "ファイルをここにドラッグ＆ドロップするか、クリックして参照してください",
+    "supportedFormats": "対応形式：PDF、TXT、DOCX"
+  },
+  "account": {
+    "eyebrow": "設定",
+    "title": "アカウント設定",
+    "description": "プロフィールと設定を管理",
+    "profile": "プロフィール",
+    "name": "名前",
+    "email": "メール",
+    "jobTitle": "役職",
+    "language": "言語",
+    "languageDescription": "インターフェースとチャットボットの優先言語を選択してください",
+    "organization": "組織",
+    "organizationName": "組織名",
+    "team": "チーム",
+    "role": "役割",
+    "owner": "オーナー",
+    "member": "メンバー",
+    "updateProfile": "プロフィールを更新",
+    "profileUpdated": "プロフィールが正常に更新されました"
+  },
+  "languages": {
+    "en": "英語",
+    "hi": "ヒンディー語",
+    "es": "スペイン語",
+    "fr": "フランス語",
+    "de": "ドイツ語",
+    "ja": "日本語"
+  },
+  "errors": {
+    "generic": "問題が発生しました。もう一度お試しください。",
+    "network": "ネットワークエラー。接続を確認してください。",
+    "unauthorized": "この操作を実行する権限がありません。",
+    "notFound": "要求されたリソースが見つかりませんでした。",
+    "validation": "入力内容を確認してもう一度お試しください。"
+  }
+}

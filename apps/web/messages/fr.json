@@ -1,0 +1,96 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "search": "Rechercher",
+    "logout": "Déconnexion"
+  },
+  "navigation": {
+    "dashboard": "Tableau de bord",
+    "chat": "Chat",
+    "documents": "Documents",
+    "account": "Compte",
+    "settings": "Paramètres"
+  },
+  "auth": {
+    "login": "Connexion",
+    "signup": "S'inscrire",
+    "email": "Email",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié?",
+    "noAccount": "Vous n'avez pas de compte?",
+    "hasAccount": "Vous avez déjà un compte?",
+    "loginButton": "Se connecter",
+    "signupButton": "Créer un compte"
+  },
+  "chat": {
+    "eyebrow": "Assistant IA",
+    "title": "Chat",
+    "description": "Posez des questions sur vos documents et obtenez des réponses instantanées",
+    "newChat": "Nouveau chat",
+    "placeholder": "Posez une question...",
+    "send": "Envoyer",
+    "voiceInput": "Entrée vocale",
+    "listening": "Écoute...",
+    "processing": "Traitement...",
+    "noCitations": "Aucune source disponible",
+    "sources": "Sources",
+    "feedback": {
+      "helpful": "Utile",
+      "notHelpful": "Pas utile",
+      "thankYou": "Merci pour votre retour!"
+    }
+  },
+  "documents": {
+    "eyebrow": "Base de Connaissances",
+    "title": "Documents",
+    "description": "Téléchargez et gérez votre bibliothèque de documents",
+    "upload": "Télécharger un document",
+    "uploadButton": "Choisir un fichier",
+    "uploading": "Téléchargement...",
+    "processing": "Traitement...",
+    "ready": "Prêt",
+    "failed": "Échoué",
+    "noDocuments": "Aucun document téléchargé pour le moment",
+    "dragDrop": "Glissez-déposez des fichiers ici ou cliquez pour parcourir",
+    "supportedFormats": "Formats pris en charge: PDF, TXT, DOCX"
+  },
+  "account": {
+    "title": "Paramètres du compte",
+    "profile": "Profil",
+    "name": "Nom",
+    "email": "Email",
+    "jobTitle": "Titre du poste",
+    "language": "Langue",
+    "languageDescription": "Sélectionnez votre langue préférée pour l'interface et le chatbot",
+    "organization": "Organisation",
+    "organizationName": "Nom de l'organisation",
+    "team": "Équipe",
+    "role": "Rôle",
+    "owner": "Propriétaire",
+    "member": "Membre",
+    "updateProfile": "Mettre à jour le profil",
+    "profileUpdated": "Profil mis à jour avec succès"
+  },
+  "languages": {
+    "en": "Anglais",
+    "hi": "Hindi",
+    "es": "Espagnol",
+    "fr": "Français",
+    "de": "Allemand",
+    "ja": "Japonais"
+  },
+  "errors": {
+    "generic": "Quelque chose s'est mal passé. Veuillez réessayer.",
+    "network": "Erreur réseau. Veuillez vérifier votre connexion.",
+    "unauthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
+    "notFound": "La ressource demandée n'a pas été trouvée.",
+    "validation": "Veuillez vérifier votre saisie et réessayer."
+  }
+}

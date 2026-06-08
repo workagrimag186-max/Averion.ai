@@ -39,7 +39,8 @@ def _response_from_context(context: RequestContext) -> AccountProfileResponse:
         name=None,
         avatar_url=None,
         job_title=None,
-        role=context.role
+        role=context.role,
+        language_preference="en"
     )
 
 
@@ -120,7 +121,8 @@ def update_current_user_profile(
                 user_id=context.user_id,
                 organization_id=context.organization_id,
                 name=request.name,
-                job_title=request.job_title
+                job_title=request.job_title,
+                language_preference=request.language_preference
             )
         )
     except DatabaseNotConfiguredError as exc:

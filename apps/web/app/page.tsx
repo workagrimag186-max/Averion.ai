@@ -1,30 +1,35 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { AppShell } from "@/components/app-shell";
 import { AuthGate } from "@/components/auth-gate";
 import { PageHeader } from "@/components/page-header";
 
-const focusAreas = [
-  {
-    title: "Documents",
-    description: "Upload internal PDFs, TXT files, and DOCX files for processing."
-  },
-  {
-    title: "Retrieval",
-    description: "Prepare chunks, embeddings, and source metadata for accurate answers."
-  },
-  {
-    title: "Chat",
-    description: "Ask questions and receive grounded answers with citations."
-  }
-];
-
 export default function HomePage() {
+  const t = useTranslations("home");
+  
+  const focusAreas = [
+    {
+      title: t("focusAreas.documents.title"),
+      description: t("focusAreas.documents.description")
+    },
+    {
+      title: t("focusAreas.retrieval.title"),
+      description: t("focusAreas.retrieval.description")
+    },
+    {
+      title: t("focusAreas.chat.title"),
+      description: t("focusAreas.chat.description")
+    }
+  ];
+
   return (
     <AuthGate>
       <AppShell>
         <PageHeader
-          eyebrow="MVP foundation"
-          title="Enterprise knowledge copilot"
-          description="A clean frontend skeleton for upload, chat, citations, and feedback workflows."
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
         />
 
         <section className="grid gap-4 md:grid-cols-3">
@@ -40,13 +45,14 @@ export default function HomePage() {
         </section>
 
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-950">Current milestone</h2>
+          <h2 className="text-lg font-semibold text-slate-950">{t("milestone.title")}</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            This screen is intentionally simple. The final visual design can be replaced later
-            without changing the route structure or product flow.
+            {t("milestone.description")}
           </p>
         </section>
       </AppShell>
     </AuthGate>
   );
 }
+
+// Made with Bob

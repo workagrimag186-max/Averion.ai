@@ -18,6 +18,7 @@ class UserProfile:
     avatar_url: str | None
     job_title: str | None
     role: str
+    language_preference: str = "en"
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ class AccountProfile:
     avatar_url: str | None
     job_title: str | None
     role: str
+    language_preference: str = "en"
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,7 @@ class AccountProfileUpdate:
     organization_id: str
     name: str | None
     job_title: str | None
+    language_preference: str | None = None
 
 
 @dataclass(frozen=True)
@@ -121,7 +124,8 @@ def _row_to_user_profile(row) -> UserProfile:
         name=row[4],
         avatar_url=row[5],
         job_title=row[6],
-        role=row[7]
+        role=row[7],
+        language_preference=row[8] if len(row) > 8 else "en"
     )
 
 
@@ -135,7 +139,8 @@ def _row_to_account_profile(row) -> AccountProfile:
         name=row[5],
         avatar_url=row[6],
         job_title=row[7],
-        role=row[8]
+        role=row[8],
+        language_preference=row[9] if len(row) > 9 else "en"
     )
 
 
@@ -260,7 +265,8 @@ def get_user_profile_by_auth_id(auth_user_id: str) -> UserProfile | None:
                     name,
                     avatar_url,
                     job_title,
-                    role
+                    role,
+                    language_preference
                 from users
                 where auth_user_id = %s::uuid
                 """,
@@ -292,7 +298,8 @@ def get_account_profile(
                     users.name,
                     users.avatar_url,
                     users.job_title,
-                    users.role
+                    users.role,
+                    users.language_preference
                 from users
                 join organizations
                     on organizations.id = users.organization_id
@@ -566,7 +573,8 @@ def accept_organization_invitation(
                     name,
                     avatar_url,
                     job_title,
-                    role
+                    role,
+                    language_preference
                 """,
                 (
                     target_organization_id,
@@ -677,6 +685,7 @@ def update_account_profile(profile: AccountProfileUpdate) -> AccountProfile | No
                 set
                     name = %s,
                     job_title = %s,
+                    language_preference = coalesce(%s, language_preference),
                     updated_at = now()
                 where id = %s::uuid
                     and organization_id = %s::uuid
@@ -693,11 +702,13 @@ def update_account_profile(profile: AccountProfileUpdate) -> AccountProfile | No
                     name,
                     avatar_url,
                     job_title,
-                    role
+                    role,
+                    language_preference
                 """,
                 (
                     profile.name,
                     profile.job_title,
+                    profile.language_preference,
                     profile.user_id,
                     profile.organization_id
                 )
@@ -724,6 +735,7 @@ def get_or_create_user_profile(profile: AuthProfileCreate) -> UserProfile:
                     users.avatar_url,
                     users.job_title,
                     users.role,
+                    users.language_preference,
                     count(organization_users.id) as organization_member_count,
                     users.auth_user_id = %s::uuid as is_current_auth_user
                 from users
@@ -772,7 +784,8 @@ def get_or_create_user_profile(profile: AuthProfileCreate) -> UserProfile:
                         name,
                         avatar_url,
                         job_title,
-                        role
+                        role,
+                        language_preference
                     """,
                     (
                         profile.auth_user_id,
@@ -830,7 +843,8 @@ def get_or_create_user_profile(profile: AuthProfileCreate) -> UserProfile:
                     name,
                     avatar_url,
                     job_title,
-                    role
+                    role,
+                    language_preference
                 """,
                 (
                     organization_id,

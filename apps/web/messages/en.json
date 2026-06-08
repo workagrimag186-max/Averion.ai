@@ -1,0 +1,98 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "search": "Search",
+    "logout": "Logout"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "chat": "Chat",
+    "documents": "Documents",
+    "account": "Account",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "signup": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "loginButton": "Sign In",
+    "signupButton": "Create Account"
+  },
+  "chat": {
+    "eyebrow": "AI Assistant",
+    "title": "Chat",
+    "description": "Ask questions about your documents and get instant answers",
+    "newChat": "New Chat",
+    "placeholder": "Ask a question...",
+    "send": "Send",
+    "voiceInput": "Voice Input",
+    "listening": "Listening...",
+    "processing": "Processing...",
+    "noCitations": "No sources available",
+    "sources": "Sources",
+    "feedback": {
+      "helpful": "Helpful",
+      "notHelpful": "Not Helpful",
+      "thankYou": "Thank you for your feedback!"
+    }
+  },
+  "documents": {
+    "eyebrow": "Knowledge Base",
+    "title": "Documents",
+    "description": "Upload and manage your document library",
+    "upload": "Upload Document",
+    "uploadButton": "Choose File",
+    "uploading": "Uploading...",
+    "processing": "Processing...",
+    "ready": "Ready",
+    "failed": "Failed",
+    "noDocuments": "No documents uploaded yet",
+    "dragDrop": "Drag and drop files here or click to browse",
+    "supportedFormats": "Supported formats: PDF, TXT, DOCX"
+  },
+  "account": {
+    "eyebrow": "Settings",
+    "title": "Account Settings",
+    "description": "Manage your profile and preferences",
+    "profile": "Profile",
+    "name": "Name",
+    "email": "Email",
+    "jobTitle": "Job Title",
+    "language": "Language",
+    "languageDescription": "Select your preferred language for the interface and chatbot",
+    "organization": "Organization",
+    "organizationName": "Organization Name",
+    "team": "Team",
+    "role": "Role",
+    "owner": "Owner",
+    "member": "Member",
+    "updateProfile": "Update Profile",
+    "profileUpdated": "Profile updated successfully"
+  },
+  "languages": {
+    "en": "English",
+    "hi": "Hindi",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "ja": "Japanese"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Network error. Please check your connection.",
+    "unauthorized": "You are not authorized to perform this action.",
+    "notFound": "The requested resource was not found.",
+    "validation": "Please check your input and try again."
+  }
+}
