@@ -1,14 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { ThumbsDown, ThumbsUp, X } from "lucide-react";
 
 import {
-  FeedbackDraft,
   FeedbackRating,
   submitFeedback as submitFeedbackRequest
 } from "@/lib/api";
-
-type SubmitState = "idle" | "submitting" | "submitted" | "error";
 
 type FeedbackControlsProps = {
   messageId: string;
@@ -16,119 +14,108 @@ type FeedbackControlsProps = {
 
 export function FeedbackControls({ messageId }: FeedbackControlsProps) {
   const [rating, setRating] = useState<FeedbackRating | null>(null);
-  const [correctionText, setCorrectionText] = useState("");
-  const [submitState, setSubmitState] = useState<SubmitState>("idle");
+  const [correction, setCorrection] = useState("");
+  const [state, setState] = useState<
+    "idle" | "submitting" | "submitted" | "error"
+  >("idle");
 
-  async function submitFeedback(nextRating: FeedbackRating, nextCorrectionText = "") {
-    setSubmitState("submitting");
-
+  async function submit(nextRating: FeedbackRating, correctionText = "") {
+    setState("submitting");
     try {
-      if (!messageId) {
-        throw new Error("Missing message id.");
-      }
-
-      const feedback: FeedbackDraft = {
+      await submitFeedbackRequest({
         message_id: messageId,
         rating: nextRating,
-        correction_text: nextCorrectionText || null
-      };
-
-      await submitFeedbackRequest(feedback);
-
-      setSubmitState("submitted");
+        correction_text: correctionText.trim() || null
+      });
+      setState("submitted");
     } catch {
-      setSubmitState("error");
+      setState("error");
     }
   }
 
-  function handleRating(nextRating: FeedbackRating) {
+  function chooseRating(nextRating: FeedbackRating) {
     setRating(nextRating);
-    setSubmitState("idle");
-
-    if (nextRating === "up") {
-      submitFeedback("up");
-    }
+    setState("idle");
+    if (nextRating === "up") void submit("up");
   }
 
-  function handleCorrectionSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleCorrection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    submitFeedback("down", correctionText.trim());
+    void submit("down", correction);
   }
 
   return (
-    <div className="mt-4 border-t border-slate-200 pt-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="mr-1 text-xs font-medium text-slate-500">Was this helpful?</p>
-        <button
-          aria-pressed={rating === "up"}
-          className={`rounded-md px-2.5 py-1 text-sm ring-1 ring-inset transition ${
-            rating === "up"
-              ? "bg-green-50 text-green-700 ring-green-200"
-              : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
-          }`}
-          disabled={submitState === "submitting"}
-          onClick={() => handleRating("up")}
-          type="button"
-        >
-          Good
-        </button>
-        <button
-          aria-pressed={rating === "down"}
-          className={`rounded-md px-2.5 py-1 text-sm ring-1 ring-inset transition ${
-            rating === "down"
-              ? "bg-red-50 text-red-700 ring-red-200"
-              : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
-          }`}
-          disabled={submitState === "submitting"}
-          onClick={() => handleRating("down")}
-          type="button"
-        >
-          Needs correction
-        </button>
-      </div>
+    <div className="relative flex items-center gap-1">
+      <button
+        aria-label="Mark answer helpful"
+        aria-pressed={rating === "up"}
+        className={`rounded-md p-2 transition ${
+          rating === "up"
+            ? "bg-emerald-500/10 text-emerald-400"
+            : "text-zinc-600 hover:bg-zinc-800 hover:text-emerald-400"
+        }`}
+        disabled={state === "submitting"}
+        onClick={() => chooseRating("up")}
+        type="button"
+      >
+        <ThumbsUp size={16} />
+      </button>
+      <button
+        aria-label="Mark answer incorrect"
+        aria-pressed={rating === "down"}
+        className={`rounded-md p-2 transition ${
+          rating === "down"
+            ? "bg-red-500/10 text-red-400"
+            : "text-zinc-600 hover:bg-zinc-800 hover:text-red-400"
+        }`}
+        disabled={state === "submitting"}
+        onClick={() => chooseRating("down")}
+        type="button"
+      >
+        <ThumbsDown size={16} />
+      </button>
 
-      {rating === "down" ? (
-        <form className="mt-3 space-y-2" onSubmit={handleCorrectionSubmit}>
-          <label className="sr-only" htmlFor={`correction-${messageId}`}>
-            Correction
-          </label>
+      {rating === "down" && state !== "submitted" && (
+        <form
+          className="absolute bottom-11 left-0 z-20 w-72 rounded-md border border-white/10 bg-zinc-900 p-3 shadow-2xl"
+          onSubmit={handleCorrection}
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-zinc-300">
+              How should this answer improve?
+            </p>
+            <button
+              aria-label="Close feedback"
+              className="text-zinc-600 hover:text-white"
+              onClick={() => setRating(null)}
+              type="button"
+            >
+              <X size={14} />
+            </button>
+          </div>
           <textarea
-            className="min-h-20 w-full resize-none rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            id={`correction-${messageId}`}
-            onChange={(event) => {
-              setCorrectionText(event.target.value);
-              setSubmitState("idle");
-            }}
-            placeholder="What should the answer say instead?"
-            value={correctionText}
+            className="mt-3 min-h-20 w-full resize-none rounded-md border border-white/10 bg-[#0d0d0d] p-2 text-xs text-white outline-none focus:border-blue-500/60"
+            onChange={(event) => setCorrection(event.target.value)}
+            placeholder="Describe the problem..."
+            value={correction}
           />
           <button
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={submitState === "submitting"}
+            className="mt-2 h-8 w-full rounded-md bg-blue-500 text-xs font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
+            disabled={state === "submitting"}
             type="submit"
           >
-            {submitState === "submitting" ? "Submitting..." : "Submit correction"}
+            {state === "submitting" ? "Sending..." : "Send feedback"}
           </button>
+          {state === "error" && (
+            <p className="mt-2 text-xs text-red-400">Feedback could not be sent.</p>
+          )}
         </form>
-      ) : null}
-
-      {submitState === "submitted" ? (
-        <div className="mt-2 rounded-md border border-green-200 bg-green-50 px-3 py-2" aria-live="polite">
-          <p className="text-xs font-semibold text-green-800">Feedback captured</p>
-          <p className="mt-1 text-xs leading-5 text-green-700">
-            This response is now available for future review.
-          </p>
-        </div>
-      ) : null}
-
-      {submitState === "error" ? (
-        <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2" role="alert">
-          <p className="text-xs font-semibold text-red-800">Feedback could not be submitted</p>
-          <p className="mt-1 text-xs leading-5 text-red-700">
-            Check that the API is running, then try again.
-          </p>
-        </div>
-      ) : null}
+      )}
+      {state === "submitted" && (
+        <span className="ml-1 text-[10px] font-semibold text-emerald-400">
+          Feedback saved
+        </span>
+      )}
     </div>
   );
 }

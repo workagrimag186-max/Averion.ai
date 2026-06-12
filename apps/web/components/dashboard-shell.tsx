@@ -27,6 +27,7 @@ import {
 
 type DashboardShellProps = {
   children: ReactNode;
+  immersive?: boolean;
 };
 
 const navigationItems = [
@@ -36,7 +37,10 @@ const navigationItems = [
   { href: "/account", label: "Settings", icon: Settings }
 ] as const;
 
-export function DashboardShell({ children }: DashboardShellProps) {
+export function DashboardShell({
+  children,
+  immersive = false
+}: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
@@ -184,7 +188,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </div>
       )}
 
-      <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center border-b border-white/[0.06] bg-[#111111]/90 px-4 backdrop-blur-xl md:left-[280px] md:px-8">
+      <header
+        className={`fixed inset-x-0 top-0 z-40 h-16 items-center border-b border-white/[0.06] bg-[#111111]/90 px-4 backdrop-blur-xl md:left-[280px] md:px-8 ${
+          immersive ? "flex md:hidden" : "flex"
+        }`}
+      >
         <button
           aria-label="Open navigation"
           className="mr-3 rounded-md p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-white md:hidden"
@@ -260,7 +268,13 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </div>
       </header>
 
-      <main className="min-h-screen px-4 pb-12 pt-24 md:ml-[280px] md:px-8">
+      <main
+        className={
+          immersive
+            ? "min-h-screen pt-16 md:ml-[280px] md:pt-0"
+            : "min-h-screen px-4 pb-12 pt-24 md:ml-[280px] md:px-8"
+        }
+      >
         {children}
       </main>
     </div>
