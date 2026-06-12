@@ -1,27 +1,13 @@
-"use client";
-
-import { useTranslations } from "next-intl";
 import { AccountSummary } from "@/components/account-summary";
-import { AppShell } from "@/components/app-shell";
 import { AuthGate } from "@/components/auth-gate";
-import { PageHeader } from "@/components/page-header";
+import { DashboardShell } from "@/components/dashboard-shell";
 
 export default function AccountPage() {
-  const t = useTranslations("account");
-  
   return (
     <AuthGate>
-      <AppShell>
-        <PageHeader
-          eyebrow={t("eyebrow")}
-          title={t("title")}
-          description={t("description")}
-        />
-
+      <DashboardShell>
         <AccountSummary />
-      </AppShell>
+      </DashboardShell>
     </AuthGate>
   );
 }
-
-// Made with Bob
