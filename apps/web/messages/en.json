@@ -12,11 +12,37 @@
     "logout": "Logout"
   },
   "navigation": {
+    "overview": "Overview",
     "dashboard": "Dashboard",
     "chat": "Chat",
     "documents": "Documents",
     "account": "Account",
-    "settings": "Settings"
+    "settings": "Settings",
+    "logout": "Logout",
+    "signingOut": "Signing out..."
+  },
+  "home": {
+    "eyebrow": "Workspace overview",
+    "title": "Enterprise knowledge copilot",
+    "description": "Upload company knowledge, retrieve relevant context, and answer questions with source citations.",
+    "focusAreas": {
+      "documents": {
+        "title": "Document intelligence",
+        "description": "Process PDF, TXT, and DOCX files into searchable knowledge."
+      },
+      "retrieval": {
+        "title": "Organization retrieval",
+        "description": "Find relevant chunks from documents shared within your organization."
+      },
+      "chat": {
+        "title": "Cited answers",
+        "description": "Ask questions and inspect the sources used to generate each answer."
+      }
+    },
+    "milestone": {
+      "title": "Current milestone",
+      "description": "The core upload, retrieval, chat, feedback, authentication, and organization workflows are connected for local testing."
+    }
   },
   "auth": {
     "login": "Login",

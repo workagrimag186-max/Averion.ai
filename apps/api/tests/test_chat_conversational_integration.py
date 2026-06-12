@@ -31,9 +31,12 @@ def client():
 def mock_auth(monkeypatch):
     """Mock authentication and database for all tests."""
     from app.api import chat
+    from app.ai.vector_store import reset_collection
     from app.db.chat import StoredChatMessages
     
     monkeypatch.setattr(chat, "get_request_context", lambda: mock_get_request_context())
+    monkeypatch.setattr("app.ai.vector_store.is_database_configured", lambda: False)
+    reset_collection()
     
     # Mock store_chat_exchange to avoid database calls
     def mock_store_chat_exchange(**kwargs):
@@ -44,6 +47,8 @@ def mock_auth(monkeypatch):
         )
     
     monkeypatch.setattr(chat, "store_chat_exchange", mock_store_chat_exchange)
+    yield
+    reset_collection()
 
 
 class TestChatConversationalIntegration:

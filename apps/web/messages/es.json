@@ -12,11 +12,37 @@
     "logout": "Cerrar sesión"
   },
   "navigation": {
+    "overview": "Resumen",
     "dashboard": "Panel",
     "chat": "Chat",
     "documents": "Documentos",
     "account": "Cuenta",
-    "settings": "Configuración"
+    "settings": "Configuración",
+    "logout": "Cerrar sesión",
+    "signingOut": "Cerrando sesión..."
+  },
+  "home": {
+    "eyebrow": "Resumen del espacio de trabajo",
+    "title": "Copiloto de conocimiento empresarial",
+    "description": "Carga conocimiento de la empresa, recupera contexto relevante y responde preguntas con citas de fuentes.",
+    "focusAreas": {
+      "documents": {
+        "title": "Inteligencia documental",
+        "description": "Convierte archivos PDF, TXT y DOCX en conocimiento consultable."
+      },
+      "retrieval": {
+        "title": "Búsqueda de la organización",
+        "description": "Encuentra fragmentos relevantes en documentos compartidos por tu organización."
+      },
+      "chat": {
+        "title": "Respuestas con fuentes",
+        "description": "Haz preguntas y revisa las fuentes utilizadas en cada respuesta."
+      }
+    },
+    "milestone": {
+      "title": "Hito actual",
+      "description": "Los flujos principales de carga, búsqueda, chat, comentarios, autenticación y organización están conectados para pruebas locales."
+    }
   },
   "auth": {
     "login": "Iniciar sesión",
@@ -62,7 +88,9 @@
     "supportedFormats": "Formatos compatibles: PDF, TXT, DOCX"
   },
   "account": {
+    "eyebrow": "Configuración",
     "title": "Configuración de cuenta",
+    "description": "Administra tu perfil y preferencias",
     "profile": "Perfil",
     "name": "Nombre",
     "email": "Correo electrónico",

@@ -1,13 +1,16 @@
 import logging
-from sentence_transformers import SentenceTransformer
+import os
+from typing import Any
+
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-_model: SentenceTransformer | None = None
+MODEL_NAME = settings.embedding_model_name
+_model: Any | None = None
 
 
-def get_embedding_model() -> SentenceTransformer:
+def get_embedding_model() -> Any:
     """
     Lazily load the embedding model.
 
@@ -17,8 +20,22 @@ def get_embedding_model() -> SentenceTransformer:
     global _model
 
     if _model is None:
+        # Keep the local AI stack friendly to laptops with limited memory.
+        os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+        os.environ.setdefault("OMP_NUM_THREADS", "2")
+        os.environ.setdefault("MKL_NUM_THREADS", "2")
+
+        from sentence_transformers import SentenceTransformer
+
         logger.info("Loading embedding model: %s", MODEL_NAME)
-        _model = SentenceTransformer(MODEL_NAME)
+        try:
+            _model = SentenceTransformer(MODEL_NAME, local_files_only=True)
+        except OSError:
+            logger.info(
+                "Embedding model is not cached; downloading %s",
+                MODEL_NAME
+            )
+            _model = SentenceTransformer(MODEL_NAME)
 
     return _model
 
@@ -85,5 +102,3 @@ def generate_embeddings(chunks: list[dict]) -> list[dict]:
     )
     
     return chunks
-
-# Made with Bob
