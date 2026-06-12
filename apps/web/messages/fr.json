@@ -12,11 +12,37 @@
     "logout": "Déconnexion"
   },
   "navigation": {
+    "overview": "Vue d’ensemble",
     "dashboard": "Tableau de bord",
     "chat": "Chat",
     "documents": "Documents",
     "account": "Compte",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "logout": "Se déconnecter",
+    "signingOut": "Déconnexion..."
+  },
+  "home": {
+    "eyebrow": "Vue d'ensemble de l'espace",
+    "title": "Copilote de connaissances d'entreprise",
+    "description": "Importez les connaissances de l'entreprise, retrouvez le contexte pertinent et répondez aux questions avec des sources.",
+    "focusAreas": {
+      "documents": {
+        "title": "Intelligence documentaire",
+        "description": "Transformez les fichiers PDF, TXT et DOCX en connaissances consultables."
+      },
+      "retrieval": {
+        "title": "Recherche de l'organisation",
+        "description": "Retrouvez les passages pertinents dans les documents partagés par votre organisation."
+      },
+      "chat": {
+        "title": "Réponses sourcées",
+        "description": "Posez des questions et consultez les sources utilisées pour chaque réponse."
+      }
+    },
+    "milestone": {
+      "title": "Étape actuelle",
+      "description": "Les principaux parcours d'import, de recherche, de discussion, de retour, d'authentification et d'organisation sont connectés pour les tests locaux."
+    }
   },
   "auth": {
     "login": "Connexion",
@@ -62,7 +88,9 @@
     "supportedFormats": "Formats pris en charge: PDF, TXT, DOCX"
   },
   "account": {
+    "eyebrow": "Paramètres",
     "title": "Paramètres du compte",
+    "description": "Gérez votre profil et vos préférences",
     "profile": "Profil",
     "name": "Nom",
     "email": "Email",

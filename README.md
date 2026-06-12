@@ -162,8 +162,8 @@ source .venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Run development server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Run the stable, single-process local server
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 The API will run on `http://localhost:8000`
@@ -248,7 +248,7 @@ NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS=example.com,company.com
 ```bash
 cd apps/api
 source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 ### 2. Start Frontend

@@ -34,8 +34,12 @@ cp .env.example .env
 Start the development server:
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+Use `--reload` only when actively editing backend Python files. The reloader
+starts an additional process and can noticeably increase memory usage once the
+embedding model is loaded.
 
 Open the health route:
 

@@ -12,11 +12,37 @@
     "logout": "Abmelden"
   },
   "navigation": {
+    "overview": "Übersicht",
     "dashboard": "Dashboard",
     "chat": "Chat",
     "documents": "Dokumente",
     "account": "Konto",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "logout": "Abmelden",
+    "signingOut": "Wird abgemeldet..."
+  },
+  "home": {
+    "eyebrow": "Arbeitsbereich im Überblick",
+    "title": "Unternehmens-Wissensassistent",
+    "description": "Laden Sie Unternehmenswissen hoch, finden Sie relevanten Kontext und beantworten Sie Fragen mit Quellenangaben.",
+    "focusAreas": {
+      "documents": {
+        "title": "Dokumentenintelligenz",
+        "description": "Verarbeiten Sie PDF-, TXT- und DOCX-Dateien zu durchsuchbarem Wissen."
+      },
+      "retrieval": {
+        "title": "Organisationsweite Suche",
+        "description": "Finden Sie relevante Abschnitte in den Dokumenten Ihrer Organisation."
+      },
+      "chat": {
+        "title": "Antworten mit Quellen",
+        "description": "Stellen Sie Fragen und prüfen Sie die Quellen jeder Antwort."
+      }
+    },
+    "milestone": {
+      "title": "Aktueller Meilenstein",
+      "description": "Die zentralen Abläufe für Upload, Suche, Chat, Feedback, Anmeldung und Organisation sind für lokale Tests verbunden."
+    }
   },
   "auth": {
     "login": "Anmelden",

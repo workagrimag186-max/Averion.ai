@@ -12,11 +12,37 @@
     "logout": "ログアウト"
   },
   "navigation": {
+    "overview": "概要",
     "dashboard": "ダッシュボード",
     "chat": "チャット",
     "documents": "ドキュメント",
     "account": "アカウント",
-    "settings": "設定"
+    "settings": "設定",
+    "logout": "ログアウト",
+    "signingOut": "ログアウト中..."
+  },
+  "home": {
+    "eyebrow": "ワークスペース概要",
+    "title": "企業向けナレッジコパイロット",
+    "description": "社内ナレッジをアップロードし、関連する文脈を検索して、出典付きで質問に回答します。",
+    "focusAreas": {
+      "documents": {
+        "title": "ドキュメントインテリジェンス",
+        "description": "PDF、TXT、DOCX ファイルを検索可能なナレッジに変換します。"
+      },
+      "retrieval": {
+        "title": "組織内検索",
+        "description": "組織内で共有されたドキュメントから関連するチャンクを検索します。"
+      },
+      "chat": {
+        "title": "出典付き回答",
+        "description": "質問を行い、各回答に使用された情報源を確認できます。"
+      }
+    },
+    "milestone": {
+      "title": "現在のマイルストーン",
+      "description": "アップロード、検索、チャット、フィードバック、認証、組織管理の主要フローがローカルテスト用に接続されています。"
+    }
   },
   "auth": {
     "login": "ログイン",
