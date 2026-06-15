@@ -28,3 +28,9 @@ class DocumentDeleteResponse(BaseModel):
     filename: str
     deleted: bool
     detail: str
+
+
+class DocumentRetryResponse(BaseModel):
+    document_id: str
+    status: str
+    detail: str

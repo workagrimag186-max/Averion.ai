@@ -7,6 +7,7 @@ class TableName(StrEnum):
     DOCUMENTS = "documents"
     DOCUMENT_CHUNKS = "document_chunks"
     DOCUMENT_EMBEDDINGS = "document_embeddings"
+    DOCUMENT_INGESTION_JOBS = "document_ingestion_jobs"
     CONVERSATIONS = "conversations"
     MESSAGES = "messages"
     FEEDBACK = "feedback"

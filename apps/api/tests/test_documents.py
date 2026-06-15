@@ -245,10 +245,8 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     monkeypatch
 ) -> None:
     stored_metadata = {}
-    stored_chunks = []
-    status_updates = []
 
-    def fake_create_document_metadata(metadata) -> None:
+    def fake_create_document_and_job(metadata) -> str:
         stored_metadata["document_id"] = metadata.document_id
         stored_metadata["organization_id"] = metadata.organization_id
         stored_metadata["uploaded_by_user_id"] = metadata.uploaded_by_user_id
@@ -256,58 +254,15 @@ def test_upload_document_stores_metadata_when_database_is_configured(
         stored_metadata["file_type"] = metadata.file_type
         stored_metadata["storage_path"] = metadata.storage_path
         stored_metadata["status"] = metadata.status
-
-    def fake_run_ingestion_pipeline(file_path, file_type, document_id):
-        stored_metadata["temporary_path"] = file_path
-        assert Path(file_path).exists()
-        return [
-            {
-                "document_id": document_id,
-                "chunk_index": 0,
-                "page_number": None,
-                "text": "Company policy notes"
-            }
-        ]
-
-    def fake_create_document_chunks(chunks) -> int:
-        stored_chunks.extend(chunks)
-        return len(chunks)
-
-    def fake_update_document_status(document_id, status, error_message=None) -> None:
-        status_updates.append((document_id, status, error_message))
-
-    def fake_generate_embeddings(chunks):
-        for chunk in chunks:
-            chunk["embedding"] = [1.0, 0.0, 0.0]
-        return chunks
+        return "00000000-0000-0000-0000-000000000199"
 
     monkeypatch.setattr(
         "app.services.document_service.is_database_configured",
         lambda: True
     )
     monkeypatch.setattr(
-        "app.services.document_service.create_document_metadata",
-        fake_create_document_metadata
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.run_ingestion_pipeline",
-        fake_run_ingestion_pipeline
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.create_document_chunks",
-        fake_create_document_chunks
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.update_document_status",
-        fake_update_document_status
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.generate_embeddings",
-        fake_generate_embeddings
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.store_embeddings",
-        lambda chunks: None
+        "app.services.document_service.create_document_and_job",
+        fake_create_document_and_job
     )
 
     original_upload_dir = settings.upload_dir
@@ -325,8 +280,8 @@ def test_upload_document_stores_metadata_when_database_is_configured(
 
     assert response.status_code == 201
     assert body["metadata_stored"] is True
-    assert body["chunks_stored"] == 1
-    assert body["status"] == "ready"
+    assert body["chunks_stored"] == 0
+    assert body["status"] == "uploaded"
     assert stored_metadata["document_id"] == body["document_id"]
     assert stored_metadata["organization_id"] == settings.default_organization_id
     assert stored_metadata["uploaded_by_user_id"] is None
@@ -337,13 +292,7 @@ def test_upload_document_stores_metadata_when_database_is_configured(
         f"{body['document_id']}/notes.txt"
     )
     assert stored_metadata["status"] == "uploaded"
-    assert not Path(stored_metadata["temporary_path"]).exists()
-    assert stored_chunks[0].document_id == body["document_id"]
-    assert stored_chunks[0].chunk_index == 0
-    assert stored_chunks[0].text == "Company policy notes"
-    assert stored_chunks[0].token_count == 3
-    assert stored_chunks[0].embedding_id == f"{body['document_id']}:0"
-    assert [update[1] for update in status_updates] == ["processing", "ready"]
+    assert (tmp_path / stored_metadata["storage_path"]).exists()
 
 
 def test_upload_document_stores_authenticated_user_id(
@@ -362,44 +311,18 @@ def test_upload_document_stores_authenticated_user_id(
             is_authenticated=True
         )
 
-    def fake_create_document_metadata(metadata) -> None:
+    def fake_create_document_and_job(metadata) -> str:
         stored_metadata["organization_id"] = metadata.organization_id
         stored_metadata["uploaded_by_user_id"] = metadata.uploaded_by_user_id
+        return "00000000-0000-0000-0000-000000000199"
 
     monkeypatch.setattr(
         "app.services.document_service.is_database_configured",
         lambda: True
     )
     monkeypatch.setattr(
-        "app.services.document_service.create_document_metadata",
-        fake_create_document_metadata
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.run_ingestion_pipeline",
-        lambda file_path, file_type, document_id: [
-            {
-                "document_id": document_id,
-                "chunk_index": 0,
-                "page_number": None,
-                "text": "Company policy notes"
-            }
-        ]
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.create_document_chunks",
-        lambda chunks: len(chunks)
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.generate_embeddings",
-        lambda chunks: chunks
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.store_embeddings",
-        lambda chunks: None
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.update_document_status",
-        lambda document_id, status, error_message=None: None
+        "app.services.document_service.create_document_and_job",
+        fake_create_document_and_job
     )
 
     app.dependency_overrides[get_request_context] = fake_context
@@ -424,7 +347,7 @@ def test_upload_document_returns_503_when_metadata_storage_fails(
     tmp_path: Path,
     monkeypatch
 ) -> None:
-    def fake_create_document_metadata(metadata) -> None:
+    def fake_create_document_and_job(metadata) -> str:
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(
@@ -432,80 +355,8 @@ def test_upload_document_returns_503_when_metadata_storage_fails(
         lambda: True
     )
     monkeypatch.setattr(
-        "app.services.document_service.create_document_metadata",
-        fake_create_document_metadata
-    )
-
-    original_upload_dir = settings.upload_dir
-    settings.upload_dir = str(tmp_path)
-
-    try:
-        response = client.post(
-            "/documents/upload",
-            files={"file": ("notes.txt", b"Company policy notes", "text/plain")}
-        )
-    finally:
-        settings.upload_dir = original_upload_dir
-
-    assert response.status_code == 503
-    assert response.json() == {
-        "detail": "Document metadata could not be stored; the uploaded object was removed."
-    }
-    assert list(tmp_path.rglob("notes.txt")) == []
-
-
-def test_upload_document_returns_503_when_chunk_storage_fails(
-    tmp_path: Path,
-    monkeypatch
-) -> None:
-    status_updates = []
-
-    def fake_create_document_metadata(metadata) -> None:
-        return None
-
-    def fake_run_ingestion_pipeline(file_path, file_type, document_id):
-        return [
-            {
-                "document_id": document_id,
-                "chunk_index": 0,
-                "page_number": None,
-                "text": "Company policy notes"
-            }
-        ]
-
-    def fake_create_document_chunks(chunks) -> int:
-        raise RuntimeError("chunk insert failed")
-
-    def fake_update_document_status(document_id, status, error_message=None) -> None:
-        status_updates.append((document_id, status, error_message))
-
-    deleted_documents = []
-
-    monkeypatch.setattr(
-        "app.services.document_service.is_database_configured",
-        lambda: True
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.create_document_metadata",
-        fake_create_document_metadata
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.run_ingestion_pipeline",
-        fake_run_ingestion_pipeline
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.create_document_chunks",
-        fake_create_document_chunks
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.update_document_status",
-        fake_update_document_status
-    )
-    monkeypatch.setattr(
-        "app.services.document_service.delete_document",
-        lambda document_id, organization_id: deleted_documents.append(
-            (document_id, organization_id)
-        )
+        "app.services.document_service.create_document_and_job",
+        fake_create_document_and_job
     )
 
     original_upload_dir = settings.upload_dir
@@ -522,12 +373,10 @@ def test_upload_document_returns_503_when_chunk_storage_fails(
     assert response.status_code == 503
     assert response.json() == {
         "detail": (
-            "Document processing failed; metadata, chunks, embeddings, "
-            "and the uploaded object were removed."
+            "Document metadata and ingestion job could not be queued; "
+            "the uploaded object was removed."
         )
     }
-    assert [update[1] for update in status_updates] == ["processing"]
-    assert len(deleted_documents) == 1
     assert list(tmp_path.rglob("notes.txt")) == []
 
 
@@ -784,3 +633,102 @@ def test_delete_document_stops_when_object_delete_fails(monkeypatch) -> None:
         "detail": "The document object could not be deleted."
     }
     assert deleted_from_database == []
+
+
+def test_retry_document_requires_owner_role() -> None:
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000777",
+            user_id="00000000-0000-0000-0000-000000000901",
+            auth_user_id="00000000-0000-0000-0000-000000000902",
+            email="member@example.com",
+            role="member",
+            is_authenticated=True
+        )
+
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.post(
+            "/documents/00000000-0000-0000-0000-000000000101/retry"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Only organization owners can retry failed documents."
+    }
+
+
+def test_retry_document_queues_failed_document_for_owner(monkeypatch) -> None:
+    captured = {}
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000777",
+            user_id="00000000-0000-0000-0000-000000000901",
+            auth_user_id="00000000-0000-0000-0000-000000000902",
+            email="owner@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    def fake_retry(document_id: str, organization_id: str) -> bool:
+        captured["document_id"] = document_id
+        captured["organization_id"] = organization_id
+        return True
+
+    monkeypatch.setattr(
+        "app.api.documents.retry_failed_ingestion_job",
+        fake_retry
+    )
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.post(
+            "/documents/00000000-0000-0000-0000-000000000101/retry"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "document_id": "00000000-0000-0000-0000-000000000101",
+        "status": "uploaded",
+        "detail": "Document ingestion was queued for retry."
+    }
+    assert captured == {
+        "document_id": "00000000-0000-0000-0000-000000000101",
+        "organization_id": "00000000-0000-0000-0000-000000000777"
+    }
+
+
+def test_retry_document_rejects_non_failed_document(monkeypatch) -> None:
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000777",
+            user_id="00000000-0000-0000-0000-000000000901",
+            auth_user_id="00000000-0000-0000-0000-000000000902",
+            email="owner@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    monkeypatch.setattr(
+        "app.api.documents.retry_failed_ingestion_job",
+        lambda document_id, organization_id: False
+    )
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.post(
+            "/documents/00000000-0000-0000-0000-000000000101/retry"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Only failed documents in your organization can be retried."
+    }

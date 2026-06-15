@@ -20,6 +20,7 @@ begin
     'organizations',
     'users',
     'documents',
+    'document_ingestion_jobs',
     'document_chunks',
     'document_embeddings',
     'conversations',
@@ -39,6 +40,8 @@ begin
     'users_organization_email_idx',
     'users_auth_user_id_unique_idx',
     'documents_organization_status_idx',
+    'document_ingestion_jobs_claim_idx',
+    'document_ingestion_jobs_organization_idx',
     'document_chunks_document_index_idx',
     'document_embeddings_organization_idx',
     'document_embeddings_document_idx',
@@ -63,6 +66,10 @@ begin
     'documents_status_check',
     'documents_storage_object_key_check',
     'documents_uploader_organization_fk',
+    'document_ingestion_jobs_status_check',
+    'document_ingestion_jobs_attempts_check',
+    'document_ingestion_jobs_document_unique',
+    'document_ingestion_jobs_document_organization_fk',
     'conversations_user_organization_fk',
     'invitations_inviter_organization_fk',
     'invitations_acceptor_organization_fk',
@@ -86,6 +93,7 @@ begin
       'organizations',
       'users',
       'documents',
+      'document_ingestion_jobs',
       'document_chunks',
       'document_embeddings',
       'conversations',
@@ -111,6 +119,7 @@ begin
       'organizations',
       'users',
       'documents',
+      'document_ingestion_jobs',
       'document_chunks',
       'document_embeddings',
       'conversations',
@@ -244,6 +253,17 @@ values (
   '00000000-0000-0000-0000-00000000a010:0'
 );
 
+insert into public.document_ingestion_jobs (
+  document_id,
+  organization_id,
+  status
+)
+values (
+  '00000000-0000-0000-0000-00000000a010',
+  '00000000-0000-0000-0000-00000000a001',
+  'completed'
+);
+
 insert into public.document_embeddings (
   chunk_id,
   organization_id,
@@ -266,6 +286,13 @@ where id = '00000000-0000-0000-0000-00000000a010';
 
 do $$
 begin
+  if exists (
+    select 1 from public.document_ingestion_jobs
+    where document_id = '00000000-0000-0000-0000-00000000a010'
+  ) then
+    raise exception 'Document ingestion job was not cascade deleted';
+  end if;
+
   if exists (
     select 1 from public.document_chunks
     where document_id = '00000000-0000-0000-0000-00000000a010'

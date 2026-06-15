@@ -54,7 +54,10 @@ def embed_text(text: str) -> list[float]:
     return embedding.tolist()
 
 
-def generate_embeddings(chunks: list[dict]) -> list[dict]:
+def generate_embeddings(
+    chunks: list[dict],
+    batch_size: int | None = None
+) -> list[dict]:
     """
     Generate embeddings for each document chunk and attach them to the chunk data.
     
@@ -65,8 +68,12 @@ def generate_embeddings(chunks: list[dict]) -> list[dict]:
     Returns:
         Updated list of chunks with embeddings attached
     """
-    processed_count = 0
-    failed_count = 0
+    eligible_chunks = [
+        chunk
+        for chunk in chunks
+        if str(chunk.get("text", "")).strip()
+    ]
+    failed_count = len(chunks) - len(eligible_chunks)
     
     logger.info(
         "Starting embedding generation for %s chunks using %s",
@@ -74,30 +81,23 @@ def generate_embeddings(chunks: list[dict]) -> list[dict]:
         MODEL_NAME
     )
     
-    for chunk in chunks:
-        try:
-            # Skip empty text
-            text = chunk.get("text", "")
-            if not text or not text.strip():
-                logger.warning(f"Skipping chunk {chunk.get('chunk_index')} - empty text")
-                failed_count += 1
-                continue
-            
-            # Generate embedding
-            embedding = embed_text(text)
-            chunk["embedding"] = embedding
-            processed_count += 1
-            
-        except Exception as e:
-            logger.error(
-                f"Failed to generate embedding for chunk {chunk.get('chunk_index')}: {str(e)}"
-            )
-            failed_count += 1
-            continue
+    if not eligible_chunks:
+        return chunks
+
+    model = get_embedding_model()
+    texts = [str(chunk["text"]).strip() for chunk in eligible_chunks]
+    embeddings = model.encode(
+        texts,
+        batch_size=batch_size or settings.embedding_batch_size,
+        show_progress_bar=False
+    )
+
+    for chunk, embedding in zip(eligible_chunks, embeddings):
+        chunk["embedding"] = embedding.tolist()
     
     logger.info(
         f"Embedding generation complete. "
-        f"Processed: {processed_count}, Failed: {failed_count}, "
+        f"Processed: {len(eligible_chunks)}, Failed: {failed_count}, "
         f"Model: {MODEL_NAME}"
     )
     

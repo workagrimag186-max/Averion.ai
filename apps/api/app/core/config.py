@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     supabase_service_role_key: str | None = None
     supabase_storage_bucket: str = "documents"
     max_document_size_bytes: int = 104_857_600
+    document_job_max_attempts: int = 3
+    document_job_retry_delay_seconds: int = 30
+    document_job_lease_seconds: int = 900
+    document_worker_poll_seconds: float = 2.0
+    document_max_chunks: int = 2_000
+    embedding_batch_size: int = 32
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     vector_db_path: str | None = None
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"

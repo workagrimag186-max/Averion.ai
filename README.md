@@ -172,6 +172,14 @@ The API will run on `http://localhost:8000`
 
 API documentation available at `http://localhost:8000/docs`
 
+In a second terminal, start the asynchronous document worker:
+
+```bash
+cd apps/api
+source .venv/bin/activate
+python -m app.workers.document_ingestion
+```
+
 ## Environment Variables
 
 ### Backend (.env)
@@ -203,6 +211,14 @@ CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
 # Embeddings
 EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+EMBEDDING_BATCH_SIZE=32
+
+# Document ingestion worker
+DOCUMENT_JOB_MAX_ATTEMPTS=3
+DOCUMENT_JOB_RETRY_DELAY_SECONDS=30
+DOCUMENT_JOB_LEASE_SECONDS=900
+DOCUMENT_WORKER_POLL_SECONDS=2
+DOCUMENT_MAX_CHUNKS=2000
 
 # Retrieval
 RETRIEVAL_TOP_K=5
