@@ -236,18 +236,11 @@ This is the **optimal choice** for Averion.ai because:
 #### 1.2 Apply Database Schema
 
 ```bash
-# Navigate to SQL Editor in Supabase Dashboard
-# Run the following migrations in order:
+supabase link --project-ref <project-ref>
+supabase db push
 
-# 1. Enable pgvector extension
-CREATE EXTENSION IF NOT EXISTS vector;
-
-# 2. Run schema migrations from docs/
-# - supabase_auth_profile_migration.sql
-# - supabase_pgvector_embeddings_migration.sql
-# - supabase_organization_invitations_migration.sql
-# - supabase_private_workspaces_migration.sql
-# - supabase_language_preference_migration.sql
+psql "$DATABASE_URL" --set ON_ERROR_STOP=1 \
+  --file supabase/tests/verify_schema.sql
 ```
 
 #### 1.3 Get Connection Details

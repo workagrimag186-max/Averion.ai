@@ -8,7 +8,7 @@ This document summarizes the complete implementation of multi-language support f
 
 ### PHASE 1: Database Changes ✓
 - Added `language_preference` column to users table
-- Migration file: `docs/supabase_language_preference_migration.sql`
+- Migration file: `supabase/migrations/202606150002_user_profiles_and_language.sql`
 - Supports: en, hi, es, fr, de, ja
 
 ### PHASE 2: Backend API Changes ✓
@@ -137,7 +137,7 @@ Response displayed to user in Hindi
 ### Database Testing:
 ```sql
 -- Run migration
-\i docs/supabase_language_preference_migration.sql
+\i supabase/migrations/202606150002_user_profiles_and_language.sql
 
 -- Verify column exists
 SELECT column_name, data_type 
@@ -243,7 +243,7 @@ export function MyComponent() {
 ## 📝 Files Modified Summary
 
 ### Backend (9 files):
-1. `docs/supabase_language_preference_migration.sql`
+1. `supabase/migrations/202606150002_user_profiles_and_language.sql`
 2. `apps/api/app/schemas/users.py`
 3. `apps/api/app/db/users.py`
 4. `apps/api/app/api/users.py`

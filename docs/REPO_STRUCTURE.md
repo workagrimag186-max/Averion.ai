@@ -33,8 +33,11 @@ Averion.ai/
     REPO_STRUCTURE.md
     DATABASE_SCHEMA.md
     SUPABASE_SETUP.md
-    schema.sql
-    supabase_verify.sql
+  supabase/
+    migrations/
+    legacy/
+    tests/
+    README.md
   scripts/
     seed_demo_data.py
     export_feedback.py

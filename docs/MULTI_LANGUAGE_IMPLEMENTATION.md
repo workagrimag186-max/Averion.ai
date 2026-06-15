@@ -6,7 +6,7 @@ This document describes the implementation of multi-language support across the 
 ## Implementation Summary
 
 ### ✅ PHASE 1: Database Changes
-**File:** `docs/supabase_language_preference_migration.sql`
+**File:** `supabase/migrations/202606150002_user_profiles_and_language.sql`
 
 Added `language_preference` column to the `users` table:
 - Column type: `text` with constraint check
@@ -237,7 +237,7 @@ FormData: { file: audio.webm }
 ## Files Modified
 
 ### Backend
-1. `docs/supabase_language_preference_migration.sql` (NEW)
+1. `supabase/migrations/202606150002_user_profiles_and_language.sql`
 2. `apps/api/app/schemas/users.py` (MODIFIED)
 3. `apps/api/app/db/users.py` (MODIFIED)
 4. `apps/api/app/api/users.py` (MODIFIED)
@@ -266,7 +266,7 @@ FormData: { file: audio.webm }
 1. **Run Database Migration:**
    ```sql
    -- Execute on Supabase
-   \i docs/supabase_language_preference_migration.sql
+   \i supabase/migrations/202606150002_user_profiles_and_language.sql
    ```
 
 2. **Update Next.js Configuration:**

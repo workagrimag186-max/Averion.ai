@@ -71,12 +71,9 @@ If you use a pooler URL, paste that instead. Keep it in `.env` only.
 
 ## Step 3: Apply The Schema
 
-1. Open the Supabase project dashboard.
-2. Go to `SQL Editor`.
-3. Open [schema.sql](schema.sql) from this repo.
-4. Copy the full SQL.
-5. Paste it into the Supabase SQL Editor.
-6. Run it.
+Apply the numbered files in `supabase/migrations/` in filename order. Use
+`supabase db push` or the direct `psql` commands documented in
+[supabase/README.md](../supabase/README.md).
 
 Expected tables:
 
@@ -89,24 +86,24 @@ document_embeddings
 conversations
 messages
 feedback
+organization_invitations
 ```
 
 ## Step 4: Verify The Tables
 
-Open [supabase_verify.sql](supabase_verify.sql), copy the SQL, and run it in Supabase SQL Editor.
+Run [supabase/tests/verify_schema.sql](../supabase/tests/verify_schema.sql).
 
 Expected result:
 
-- 8 rows
-- every `exists` value is `true`
+- `Averion schema verification passed`
+- `Averion tenancy behavior verification passed`
 
-You can also check in the Supabase Table Editor that all eight tables are visible.
+You can also check in the Supabase Table Editor that all nine tables are visible.
 
-If your database was created before issue 36, also run [supabase_auth_profile_migration.sql](supabase_auth_profile_migration.sql) to add the Supabase Auth profile mapping columns to `users`.
-If your database was created before issue 49, also run [supabase_pgvector_embeddings_migration.sql](supabase_pgvector_embeddings_migration.sql) to enable `pgvector` and add the shared `document_embeddings` table.
-Documents uploaded before this pgvector migration should be re-uploaded for
-shared organization chat, because their embeddings were previously stored only
-in a local vector store.
+Existing databases use the same ordered chain. Complete the backup and
+consistency checks in [supabase/README.md](../supabase/README.md) first.
+Documents uploaded before shared pgvector storage should be re-uploaded so
+their embeddings exist in `document_embeddings`.
 
 ## Step 5: Create Local Env File
 
@@ -148,8 +145,8 @@ extraction, cleaning, and chunking pipeline. Produced chunks are stored in the
 Before closing S1:
 
 - Supabase project exists.
-- `docs/schema.sql` has been applied.
-- `docs/supabase_verify.sql` shows all required tables.
+- All files in `supabase/migrations/` have been applied in order.
+- `supabase/tests/verify_schema.sql` passes.
 - `apps/api/.env` contains `DATABASE_URL` locally.
 - `git status` does not show `apps/api/.env`.
 - No passwords or Supabase secrets are in committed files.
@@ -158,6 +155,7 @@ Before closing S1:
 
 If the direct connection does not work, use the Supabase pooler connection string from the `Connect` page.
 
-If schema creation fails because tables already exist, the schema was probably already applied. Run [supabase_verify.sql](supabase_verify.sql) to confirm.
+If a migration fails, stop rather than manually altering production. Restore
+the backup if needed, correct inconsistent data, and rerun the ordered chain.
 
 If you accidentally paste a secret into a tracked file, do not commit it. Remove it immediately and ask for help before pushing.

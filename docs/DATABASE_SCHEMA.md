@@ -339,6 +339,8 @@ Organization: Averion Demo
 User: demo@averion.local
 ```
 
-For databases created before issue 36, run [supabase_auth_profile_migration.sql](supabase_auth_profile_migration.sql) to add the auth profile mapping columns.
+The authoritative schema is the ordered migration chain in
+[`supabase/migrations/`](../supabase/migrations/). Existing databases should
+follow the upgrade path in [`supabase/README.md`](../supabase/README.md).
 
 Later issues can turn this design into migrations and SQLAlchemy models. This issue only defines the schema contract.
