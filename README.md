@@ -186,6 +186,10 @@ DEFAULT_ORGANIZATION_ID=00000000-0000-0000-0000-000000000001
 # Supabase
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_JWT_SECRET=your-jwt-secret
+SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
+DOCUMENT_STORAGE_BACKEND=supabase
+SUPABASE_STORAGE_BUCKET=documents
+MAX_DOCUMENT_SIZE_BYTES=104857600
 
 # Authentication
 ALLOWED_EMAIL_DOMAINS=example.com,company.com
@@ -220,7 +224,11 @@ LLM_MAX_TOKENS=1000
 - `SUPABASE_JWT_SECRET`: JWT secret from Supabase dashboard
 - `ALLOWED_EMAIL_DOMAINS`: Comma-separated allowed email domains (empty = allow all)
 - `AUTH_REQUIRED`: Enable/disable authentication (true/false)
-- `UPLOAD_DIR`: Local directory for uploaded files
+- `SUPABASE_SERVICE_ROLE_KEY`: Server-only key for the private document bucket
+- `DOCUMENT_STORAGE_BACKEND`: Use `supabase` in deployed environments
+- `SUPABASE_STORAGE_BUCKET`: Private bucket name, normally `documents`
+- `MAX_DOCUMENT_SIZE_BYTES`: Maximum accepted document payload size
+- `UPLOAD_DIR`: Local-only object store when `DOCUMENT_STORAGE_BACKEND=local`
 - `CORS_ORIGINS`: Comma-separated allowed frontend origins
 - `EMBEDDING_MODEL_NAME`: Hugging Face model for embeddings
 - `RETRIEVAL_TOP_K`: Number of chunks to retrieve per query

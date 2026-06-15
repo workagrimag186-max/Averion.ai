@@ -61,6 +61,7 @@ begin
     'users_language_preference_check',
     'documents_file_type_check',
     'documents_status_check',
+    'documents_storage_object_key_check',
     'documents_uploader_organization_fk',
     'conversations_user_organization_fk',
     'invitations_inviter_organization_fk',
@@ -172,6 +173,29 @@ begin
   end;
 
   begin
+    insert into public.documents (
+      id,
+      organization_id,
+      uploaded_by_user_id,
+      filename,
+      file_type,
+      storage_path
+    )
+    values (
+      '00000000-0000-0000-0000-00000000a003',
+      '00000000-0000-0000-0000-00000000a001',
+      '00000000-0000-0000-0000-00000000a002',
+      'bad-key.txt',
+      'txt',
+      'organizations/00000000-0000-0000-0000-00000000b001/documents/other/bad-key.txt'
+    );
+
+    raise exception 'Cross-organization document object key was accepted';
+  exception
+    when check_violation then null;
+  end;
+
+  begin
     insert into public.conversations (organization_id, user_id, title)
     values (
       '00000000-0000-0000-0000-00000000a001',
@@ -183,6 +207,76 @@ begin
   exception
     when foreign_key_violation then null;
   end;
+end
+$$;
+
+insert into public.documents (
+  id,
+  organization_id,
+  uploaded_by_user_id,
+  filename,
+  file_type,
+  storage_path,
+  status
+)
+values (
+  '00000000-0000-0000-0000-00000000a010',
+  '00000000-0000-0000-0000-00000000a001',
+  '00000000-0000-0000-0000-00000000a002',
+  'cascade-test.txt',
+  'txt',
+  'organizations/00000000-0000-0000-0000-00000000a001/documents/00000000-0000-0000-0000-00000000a010/cascade-test.txt',
+  'ready'
+);
+
+insert into public.document_chunks (
+  document_id,
+  chunk_index,
+  text,
+  embedding_id
+)
+values (
+  '00000000-0000-0000-0000-00000000a010',
+  0,
+  'Cascade verification chunk',
+  '00000000-0000-0000-0000-00000000a010:0'
+);
+
+insert into public.document_embeddings (
+  chunk_id,
+  organization_id,
+  document_id,
+  chunk_index,
+  text,
+  embedding
+)
+values (
+  '00000000-0000-0000-0000-00000000a010:0',
+  '00000000-0000-0000-0000-00000000a001',
+  '00000000-0000-0000-0000-00000000a010',
+  0,
+  'Cascade verification chunk',
+  array_fill(0.0::real, array[384])::vector
+);
+
+delete from public.documents
+where id = '00000000-0000-0000-0000-00000000a010';
+
+do $$
+begin
+  if exists (
+    select 1 from public.document_chunks
+    where document_id = '00000000-0000-0000-0000-00000000a010'
+  ) then
+    raise exception 'Document chunks were not cascade deleted';
+  end if;
+
+  if exists (
+    select 1 from public.document_embeddings
+    where document_id = '00000000-0000-0000-0000-00000000a010'
+  ) then
+    raise exception 'Document embeddings were not cascade deleted';
+  end if;
 end
 $$;
 

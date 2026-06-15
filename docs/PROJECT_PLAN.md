@@ -258,7 +258,7 @@ Response:
   "filename": "handbook.pdf",
   "file_type": "pdf",
   "status": "uploaded",
-  "storage_path": "uploads/doc_123/handbook.pdf",
+  "storage_path": "organizations/org_123/documents/doc_123/handbook.pdf",
   "metadata_stored": true,
   "chunks_stored": 3
 }

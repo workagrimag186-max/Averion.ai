@@ -1,4 +1,6 @@
+from io import BytesIO
 from pathlib import Path
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 import pytest
@@ -11,9 +13,40 @@ from app.db.documents import (
     DocumentListRecord
 )
 from app.main import app
+from app.services.document_storage import DocumentStorage, DocumentStorageError
 
 
 client = TestClient(app)
+
+
+class FakeDocumentStorage(DocumentStorage):
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+        self.deleted_keys: list[str] = []
+
+    def upload(self, object_key: str, contents: bytes, content_type: str) -> None:
+        del content_type
+        self.objects[object_key] = contents
+
+    def download(self, object_key: str) -> bytes:
+        return self.objects[object_key]
+
+    def delete(self, object_key: str) -> None:
+        self.deleted_keys.append(object_key)
+        self.objects.pop(object_key, None)
+
+
+def build_docx_bytes() -> bytes:
+    output = BytesIO()
+
+    with ZipFile(output, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types />")
+        archive.writestr(
+            "word/document.xml",
+            "<w:document xmlns:w='http://schemas.openxmlformats.org/wordprocessingml/2006/main' />"
+        )
+
+    return output.getvalue()
 
 
 @pytest.fixture(autouse=True)
@@ -44,7 +77,10 @@ def test_upload_document_accepts_txt_file(tmp_path: Path) -> None:
     assert body["status"] == "uploaded"
     assert body["document_id"]
     assert body["metadata_stored"] is False
-    assert Path(body["storage_path"]).exists()
+    assert body["storage_path"].startswith(
+        f"organizations/{settings.default_organization_id}/documents/"
+    )
+    assert (tmp_path / body["storage_path"]).exists()
 
 
 def test_upload_document_accepts_pdf_file(tmp_path: Path) -> None:
@@ -77,7 +113,7 @@ def test_upload_document_accepts_docx_file(tmp_path: Path) -> None:
             files={
                 "file": (
                     "guide.docx",
-                    b"docx placeholder",
+                    build_docx_bytes(),
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
             }
@@ -105,7 +141,7 @@ def test_upload_document_rejects_unsupported_file_type(tmp_path: Path) -> None:
     finally:
         settings.upload_dir = original_upload_dir
 
-    assert response.status_code == 400
+    assert response.status_code == 415
     assert response.json() == {
         "detail": "Unsupported file type. Upload a PDF, TXT, or DOCX file."
     }
@@ -218,9 +254,12 @@ def test_upload_document_stores_metadata_when_database_is_configured(
         stored_metadata["uploaded_by_user_id"] = metadata.uploaded_by_user_id
         stored_metadata["filename"] = metadata.filename
         stored_metadata["file_type"] = metadata.file_type
+        stored_metadata["storage_path"] = metadata.storage_path
         stored_metadata["status"] = metadata.status
 
     def fake_run_ingestion_pipeline(file_path, file_type, document_id):
+        stored_metadata["temporary_path"] = file_path
+        assert Path(file_path).exists()
         return [
             {
                 "document_id": document_id,
@@ -293,7 +332,12 @@ def test_upload_document_stores_metadata_when_database_is_configured(
     assert stored_metadata["uploaded_by_user_id"] is None
     assert stored_metadata["filename"] == "notes.txt"
     assert stored_metadata["file_type"] == "txt"
+    assert stored_metadata["storage_path"] == (
+        f"organizations/{settings.default_organization_id}/documents/"
+        f"{body['document_id']}/notes.txt"
+    )
     assert stored_metadata["status"] == "uploaded"
+    assert not Path(stored_metadata["temporary_path"]).exists()
     assert stored_chunks[0].document_id == body["document_id"]
     assert stored_chunks[0].chunk_index == 0
     assert stored_chunks[0].text == "Company policy notes"
@@ -405,8 +449,9 @@ def test_upload_document_returns_503_when_metadata_storage_fails(
 
     assert response.status_code == 503
     assert response.json() == {
-        "detail": "Document was saved locally, but metadata could not be stored."
+        "detail": "Document metadata could not be stored; the uploaded object was removed."
     }
+    assert list(tmp_path.rglob("notes.txt")) == []
 
 
 def test_upload_document_returns_503_when_chunk_storage_fails(
@@ -434,6 +479,8 @@ def test_upload_document_returns_503_when_chunk_storage_fails(
     def fake_update_document_status(document_id, status, error_message=None) -> None:
         status_updates.append((document_id, status, error_message))
 
+    deleted_documents = []
+
     monkeypatch.setattr(
         "app.services.document_service.is_database_configured",
         lambda: True
@@ -454,6 +501,12 @@ def test_upload_document_returns_503_when_chunk_storage_fails(
         "app.services.document_service.update_document_status",
         fake_update_document_status
     )
+    monkeypatch.setattr(
+        "app.services.document_service.delete_document",
+        lambda document_id, organization_id: deleted_documents.append(
+            (document_id, organization_id)
+        )
+    )
 
     original_upload_dir = settings.upload_dir
     settings.upload_dir = str(tmp_path)
@@ -468,9 +521,14 @@ def test_upload_document_returns_503_when_chunk_storage_fails(
 
     assert response.status_code == 503
     assert response.json() == {
-        "detail": "Document metadata was stored, but chunks could not be stored."
+        "detail": (
+            "Document processing failed; metadata, chunks, embeddings, "
+            "and the uploaded object were removed."
+        )
     }
-    assert [update[1] for update in status_updates] == ["processing", "failed"]
+    assert [update[1] for update in status_updates] == ["processing"]
+    assert len(deleted_documents) == 1
+    assert list(tmp_path.rglob("notes.txt")) == []
 
 
 def test_delete_document_requires_owner_role() -> None:
@@ -499,6 +557,12 @@ def test_delete_document_requires_owner_role() -> None:
 
 def test_delete_document_deletes_owner_organization_document(monkeypatch) -> None:
     captured_scope = {}
+    storage = FakeDocumentStorage()
+    object_key = (
+        "organizations/00000000-0000-0000-0000-000000000777/"
+        "documents/00000000-0000-0000-0000-000000000101/handbook.pdf"
+    )
+    storage.objects[object_key] = b"%PDF-1.4"
 
     def fake_context() -> RequestContext:
         return RequestContext(
@@ -516,11 +580,15 @@ def test_delete_document_deletes_owner_organization_document(monkeypatch) -> Non
         return DeletedDocumentRecord(
             document_id=document_id,
             filename="handbook.pdf",
-            storage_path="uploads/doc/handbook.pdf"
+            storage_path=object_key
         )
 
+    monkeypatch.setattr(
+        "app.api.documents.get_document_for_organization",
+        fake_delete_document
+    )
     monkeypatch.setattr("app.api.documents.delete_document", fake_delete_document)
-    monkeypatch.setattr("app.api.documents._delete_local_document_file", lambda storage_path: None)
+    monkeypatch.setattr("app.api.documents.get_document_storage", lambda: storage)
     app.dependency_overrides[get_request_context] = fake_context
 
     try:
@@ -539,6 +607,8 @@ def test_delete_document_deletes_owner_organization_document(monkeypatch) -> Non
         "document_id": "00000000-0000-0000-0000-000000000101",
         "organization_id": "00000000-0000-0000-0000-000000000777"
     }
+    assert storage.deleted_keys == [object_key]
+    assert object_key not in storage.objects
 
 
 def test_delete_document_returns_404_for_other_organization_document(monkeypatch) -> None:
@@ -552,7 +622,10 @@ def test_delete_document_returns_404_for_other_organization_document(monkeypatch
             is_authenticated=True
         )
 
-    monkeypatch.setattr("app.api.documents.delete_document", lambda document_id, organization_id: None)
+    monkeypatch.setattr(
+        "app.api.documents.get_document_for_organization",
+        lambda document_id, organization_id: None
+    )
     app.dependency_overrides[get_request_context] = fake_context
 
     try:
@@ -564,3 +637,150 @@ def test_delete_document_returns_404_for_other_organization_document(monkeypatch
     assert response.json() == {
         "detail": "Document was not found in your organization."
     }
+
+
+@pytest.mark.parametrize(
+    ("filename", "contents", "content_type", "status_code", "detail"),
+    [
+        (
+            "empty.txt",
+            b"",
+            "text/plain",
+            422,
+            "The uploaded document is empty."
+        ),
+        (
+            "fake.pdf",
+            b"plain text",
+            "application/pdf",
+            415,
+            "The uploaded file content does not match its PDF extension."
+        ),
+        (
+            "binary.txt",
+            b"hello\x00world",
+            "text/plain",
+            415,
+            "The uploaded file content does not appear to be plain text."
+        ),
+        (
+            "notes.txt",
+            b"plain text",
+            "application/pdf",
+            415,
+            "The declared MIME type does not match a TXT file."
+        ),
+        (
+            "../notes.txt",
+            b"plain text",
+            "text/plain",
+            400,
+            "The uploaded filename is invalid."
+        )
+    ]
+)
+def test_upload_document_rejects_invalid_payloads(
+    filename: str,
+    contents: bytes,
+    content_type: str,
+    status_code: int,
+    detail: str
+) -> None:
+    response = client.post(
+        "/documents/upload",
+        files={"file": (filename, contents, content_type)}
+    )
+
+    assert response.status_code == status_code
+    assert response.json() == {"detail": detail}
+
+
+def test_upload_document_rejects_oversized_file(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "max_document_size_bytes", 4)
+
+    response = client.post(
+        "/documents/upload",
+        files={"file": ("notes.txt", b"12345", "text/plain")}
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {
+        "detail": "The uploaded document exceeds the 4 byte limit."
+    }
+
+
+def test_upload_document_returns_503_when_object_storage_fails(monkeypatch) -> None:
+    class FailingStorage(FakeDocumentStorage):
+        def upload(
+            self,
+            object_key: str,
+            contents: bytes,
+            content_type: str
+        ) -> None:
+            raise DocumentStorageError("Object storage unavailable.")
+
+    monkeypatch.setattr(
+        "app.services.document_service.get_document_storage",
+        lambda: FailingStorage()
+    )
+
+    response = client.post(
+        "/documents/upload",
+        files={"file": ("notes.txt", b"Company policy notes", "text/plain")}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Object storage unavailable."}
+
+
+def test_delete_document_stops_when_object_delete_fails(monkeypatch) -> None:
+    deleted_from_database = []
+    stored_document = DeletedDocumentRecord(
+        document_id="00000000-0000-0000-0000-000000000101",
+        filename="handbook.pdf",
+        storage_path=(
+            "organizations/00000000-0000-0000-0000-000000000777/"
+            "documents/00000000-0000-0000-0000-000000000101/handbook.pdf"
+        )
+    )
+
+    class FailingStorage(FakeDocumentStorage):
+        def delete(self, object_key: str) -> None:
+            raise DocumentStorageError("delete failed")
+
+    def fake_context() -> RequestContext:
+        return RequestContext(
+            organization_id="00000000-0000-0000-0000-000000000777",
+            user_id="00000000-0000-0000-0000-000000000901",
+            auth_user_id="00000000-0000-0000-0000-000000000902",
+            email="owner@example.com",
+            role="owner",
+            is_authenticated=True
+        )
+
+    monkeypatch.setattr(
+        "app.api.documents.get_document_for_organization",
+        lambda document_id, organization_id: stored_document
+    )
+    monkeypatch.setattr(
+        "app.api.documents.delete_document",
+        lambda document_id, organization_id: deleted_from_database.append(document_id)
+    )
+    monkeypatch.setattr(
+        "app.api.documents.get_document_storage",
+        lambda: FailingStorage()
+    )
+    app.dependency_overrides[get_request_context] = fake_context
+
+    try:
+        response = client.delete(
+            "/documents/00000000-0000-0000-0000-000000000101"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "The document object could not be deleted."
+    }
+    assert deleted_from_database == []

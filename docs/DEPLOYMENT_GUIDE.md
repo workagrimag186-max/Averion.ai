@@ -328,7 +328,10 @@ ALLOWED_EMAIL_DOMAINS=
 AUTH_REQUIRED=true
 
 # File Upload
-UPLOAD_DIR=/app/uploads
+DOCUMENT_STORAGE_BACKEND=supabase
+SUPABASE_SERVICE_ROLE_KEY=[server-only-service-role-key]
+SUPABASE_STORAGE_BUCKET=documents
+MAX_DOCUMENT_SIZE_BYTES=104857600
 
 # CORS (will update after frontend deployment)
 CORS_ORIGINS=https://your-frontend-domain.vercel.app
@@ -487,7 +490,10 @@ CORS_ORIGINS=https://[your-vercel-domain].vercel.app,https://[custom-domain].com
 - [ ] `SUPABASE_JWT_SECRET` - JWT secret from Supabase
 - [ ] `ALLOWED_EMAIL_DOMAINS` - Comma-separated domains (optional)
 - [ ] `AUTH_REQUIRED=true` - Enable authentication
-- [ ] `UPLOAD_DIR=/app/uploads` - Persistent storage path
+- [ ] `DOCUMENT_STORAGE_BACKEND=supabase`
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` - server-only private bucket access
+- [ ] `SUPABASE_STORAGE_BUCKET=documents`
+- [ ] `MAX_DOCUMENT_SIZE_BYTES=104857600`
 - [ ] `CORS_ORIGINS` - Frontend domain(s)
 - [ ] `EMBEDDING_MODEL_NAME` - sentence-transformers model
 - [ ] `RETRIEVAL_TOP_K=5` - Number of chunks to retrieve
@@ -894,7 +900,7 @@ Consider migrating to AWS/GCP for better economics at scale:
 - [ ] Repository connected
 - [ ] Build settings configured
 - [ ] Environment variables set
-- [ ] Persistent storage configured
+- [ ] Private Supabase `documents` bucket and storage policies configured
 - [ ] Memory allocation set (2GB minimum)
 - [ ] Health check endpoint verified
 - [ ] Deployment successful

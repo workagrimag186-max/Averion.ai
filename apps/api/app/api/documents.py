@@ -1,12 +1,13 @@
-from pathlib import Path
-import shutil
-
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.core.auth import RequestContext, get_request_context
 from app.core.organization import get_current_organization_id
-from app.core.config import settings
-from app.db.documents import DatabaseNotConfiguredError, delete_document, list_documents
+from app.db.documents import (
+    DatabaseNotConfiguredError,
+    delete_document,
+    get_document_for_organization,
+    list_documents
+)
 from app.schemas.documents import (
     DocumentDeleteResponse,
     DocumentListItem,
@@ -15,28 +16,15 @@ from app.schemas.documents import (
 from app.services.document_service import (
     DocumentChunkStorageError,
     DocumentMetadataStorageError,
-    UnsupportedDocumentTypeError,
+    DocumentValidationError,
     save_uploaded_document
+)
+from app.services.document_storage import (
+    DocumentStorageError,
+    get_document_storage
 )
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-
-
-def _delete_local_document_file(storage_path: str) -> None:
-    path = Path(storage_path)
-
-    if not path.exists():
-        return
-
-    try:
-        if path.is_file():
-            path.unlink()
-
-        if path.parent.exists() and not any(path.parent.iterdir()):
-            shutil.rmtree(path.parent)
-    except OSError:
-        # Database deletion is the source of truth; local file cleanup is best effort.
-        return
 
 
 @router.get("", response_model=list[DocumentListItem])
@@ -79,13 +67,17 @@ async def upload_document(
     try:
         return await save_uploaded_document(
             file=file,
-            upload_dir=settings.upload_dir,
             organization_id=context.organization_id,
             uploaded_by_user_id=context.user_id
         )
-    except UnsupportedDocumentTypeError as exc:
+    except DocumentValidationError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=exc.status_code,
+            detail=str(exc)
+        ) from exc
+    except DocumentStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc)
         ) from exc
     except DocumentMetadataStorageError as exc:
@@ -112,7 +104,7 @@ def delete_uploaded_document(
         )
 
     try:
-        deleted_document = delete_document(
+        stored_document = get_document_for_organization(
             document_id=document_id,
             organization_id=context.organization_id
         )
@@ -122,13 +114,30 @@ def delete_uploaded_document(
             detail=str(exc)
         ) from exc
 
-    if deleted_document is None:
+    if stored_document is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document was not found in your organization."
         )
 
-    _delete_local_document_file(deleted_document.storage_path)
+    try:
+        get_document_storage().delete(stored_document.storage_path)
+    except DocumentStorageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The document object could not be deleted."
+        ) from exc
+
+    deleted_document = delete_document(
+        document_id=document_id,
+        organization_id=context.organization_id
+    )
+
+    if deleted_document is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The document changed while it was being deleted. Please retry."
+        )
 
     return DocumentDeleteResponse(
         document_id=deleted_document.document_id,
