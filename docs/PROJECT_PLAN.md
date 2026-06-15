@@ -83,7 +83,7 @@ Responsibilities:
 ### Backend
 
 - FastAPI for the AI/backend service.
-- Python 3.11+.
+- Python 3.12.
 - Pydantic for request and response validation.
 - PostgreSQL for metadata, users, documents, chat history, and feedback.
 - Supabase Postgres for the hosted MVP database.

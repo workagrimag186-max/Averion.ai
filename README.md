@@ -95,7 +95,7 @@ Ready for Retrieval
 
 ### Backend
 - **Framework**: FastAPI 0.116
-- **Language**: Python 3.11+
+- **Language**: Python 3.12
 - **Validation**: Pydantic
 - **Server**: Uvicorn with standard extras
 
@@ -123,8 +123,9 @@ Ready for Retrieval
 
 ### Prerequisites
 
-- **Node.js**: LTS version (18+)
-- **Python**: 3.11 or newer
+- **Node.js**: 22.x
+- **npm**: 10.x
+- **Python**: 3.12.x
 - **PostgreSQL**: Via Supabase or local instance
 - **Git**: For version control
 
@@ -138,8 +139,9 @@ cd Averion.ai
 ### Frontend Setup
 
 ```bash
+nvm use
 cd apps/web
-npm install
+npm ci
 npm run dev
 ```
 
@@ -151,7 +153,7 @@ The frontend will run on `http://localhost:3000`
 cd apps/api
 
 # Create virtual environment
-python -m venv .venv
+python3.12 -m venv .venv
 
 # Activate virtual environment
 # On Windows:
