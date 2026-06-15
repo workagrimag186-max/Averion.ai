@@ -8,13 +8,14 @@ from app.db.documents import (
     get_document_for_organization,
     list_documents
 )
+from app.db.ingestion_jobs import retry_failed_ingestion_job
 from app.schemas.documents import (
     DocumentDeleteResponse,
     DocumentListItem,
+    DocumentRetryResponse,
     DocumentUploadResponse
 )
 from app.services.document_service import (
-    DocumentChunkStorageError,
     DocumentMetadataStorageError,
     DocumentValidationError,
     save_uploaded_document
@@ -85,11 +86,6 @@ async def upload_document(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc)
         ) from exc
-    except DocumentChunkStorageError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc)
-        ) from exc
 
 
 @router.delete("/{document_id}", response_model=DocumentDeleteResponse)
@@ -144,4 +140,42 @@ def delete_uploaded_document(
         filename=deleted_document.filename,
         deleted=True,
         detail="Document, chunks, and embeddings were deleted."
+    )
+
+
+@router.post(
+    "/{document_id}/retry",
+    response_model=DocumentRetryResponse
+)
+def retry_document_ingestion(
+    document_id: str,
+    context: RequestContext = Depends(get_request_context)
+) -> DocumentRetryResponse:
+    if context.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only organization owners can retry failed documents."
+        )
+
+    try:
+        retried = retry_failed_ingestion_job(
+            document_id=document_id,
+            organization_id=context.organization_id
+        )
+    except DatabaseNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc)
+        ) from exc
+
+    if not retried:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only failed documents in your organization can be retried."
+        )
+
+    return DocumentRetryResponse(
+        document_id=document_id,
+        status="uploaded",
+        detail="Document ingestion was queued for retry."
     )

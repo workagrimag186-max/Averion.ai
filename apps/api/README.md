@@ -176,7 +176,7 @@ Successful response:
   "status": "uploaded",
   "storage_path": "organizations/organization-uuid/documents/generated-uuid/sample.pdf",
   "metadata_stored": true,
-  "chunks_stored": 3
+  "chunks_stored": 0
 }
 ```
 
@@ -189,12 +189,25 @@ bucket is created by the ordered migrations. Local development can keep
 under `UPLOAD_DIR`.
 
 Uploads reject empty, oversized, unsupported, MIME-mismatched, or malformed
-files before metadata is created. Extraction uses a temporary downloaded copy,
-and failed processing removes both the database record and stored object.
+files before metadata is created. A successful upload atomically creates its
+metadata and one durable ingestion job, then returns without waiting for
+extraction or embeddings.
 
-When `DATABASE_URL` is configured, uploads also create a row in the
-`documents` table and store extracted text chunks in `document_chunks`.
-During development, the backend uses
+Run the document worker in a separate process:
+
+```bash
+python -m app.workers.document_ingestion
+```
+
+The worker claims jobs with PostgreSQL row locking, downloads a temporary
+copy, extracts chunks, batches embeddings, and updates the document through
+`uploaded`, `processing`, `ready`, or `failed`. Failed jobs retry up to
+`DOCUMENT_JOB_MAX_ATTEMPTS`; organization owners can manually requeue a
+terminal failure with `POST /documents/{document_id}/retry`.
+
+When `DATABASE_URL` is configured, the worker stores extracted text chunks in
+`document_chunks` and vectors in `document_embeddings`. During development,
+the backend uses
 `DEFAULT_ORGANIZATION_ID` and creates a temporary `Development Organization`
 record automatically.
 

@@ -430,6 +430,11 @@ For an existing database, follow the backup and consistency checks in
 1. Click **"Add variables"** or go to **Variables** tab
 2. Set **Root Directory**: `apps/api`
 3. Railway will auto-detect Python and requirements.txt
+4. Create a second service from the same repository and root directory
+5. Use `python -m app.workers.document_ingestion` as the second service's
+   start command
+6. Copy the same backend environment variables to the worker service; the
+   worker does not need a public domain
 
 #### Step 2.4: Set Environment Variables
 
@@ -459,6 +464,14 @@ CORS_ORIGINS=http://localhost:3000
 
 # Embeddings
 EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+EMBEDDING_BATCH_SIZE=32
+
+# Document ingestion worker
+DOCUMENT_JOB_MAX_ATTEMPTS=3
+DOCUMENT_JOB_RETRY_DELAY_SECONDS=30
+DOCUMENT_JOB_LEASE_SECONDS=900
+DOCUMENT_WORKER_POLL_SECONDS=2
+DOCUMENT_MAX_CHUNKS=2000
 
 # Retrieval
 RETRIEVAL_TOP_K=5

@@ -293,6 +293,17 @@ Railway will auto-detect Python. Verify these settings:
 # Start Command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
 
+Create a second Railway service from the same `apps/api` root for asynchronous
+document ingestion:
+
+```yaml
+# Worker Start Command:
+# python -m app.workers.document_ingestion
+```
+
+The API and worker must use the same Supabase and `DATABASE_URL` variables.
+Do not expose a public domain for the worker service.
+
 Create `railway.json` in `apps/api/`:
 
 ```json
@@ -338,6 +349,14 @@ CORS_ORIGINS=https://your-frontend-domain.vercel.app
 
 # Embeddings
 EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+EMBEDDING_BATCH_SIZE=32
+
+# Document ingestion worker
+DOCUMENT_JOB_MAX_ATTEMPTS=3
+DOCUMENT_JOB_RETRY_DELAY_SECONDS=30
+DOCUMENT_JOB_LEASE_SECONDS=900
+DOCUMENT_WORKER_POLL_SECONDS=2
+DOCUMENT_MAX_CHUNKS=2000
 
 # Retrieval
 RETRIEVAL_TOP_K=5
