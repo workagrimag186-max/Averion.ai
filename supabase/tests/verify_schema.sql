@@ -153,6 +153,7 @@ do $$
 begin
   begin
     insert into public.documents (
+      id,
       organization_id,
       uploaded_by_user_id,
       filename,
@@ -160,11 +161,12 @@ begin
       storage_path
     )
     values (
+      '00000000-0000-0000-0000-00000000a004',
       '00000000-0000-0000-0000-00000000a001',
       '00000000-0000-0000-0000-00000000b002',
       'cross-tenant.txt',
       'txt',
-      'migration-test/cross-tenant.txt'
+      'organizations/00000000-0000-0000-0000-00000000a001/documents/00000000-0000-0000-0000-00000000a004/cross-tenant.txt'
     );
 
     raise exception 'Cross-organization document upload was accepted';
