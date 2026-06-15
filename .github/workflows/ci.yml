@@ -92,6 +92,9 @@ jobs:
   api:
     name: API
     runs-on: ubuntu-latest
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
     defaults:
       run:
         working-directory: apps/api
