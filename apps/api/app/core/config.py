@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     allowed_email_domains: str = ""
     auth_required: bool = False
     upload_dir: str = "./uploads"
+    document_storage_backend: str = "local"
+    supabase_service_role_key: str | None = None
+    supabase_storage_bucket: str = "documents"
+    max_document_size_bytes: int = 104_857_600
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     vector_db_path: str | None = None
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"

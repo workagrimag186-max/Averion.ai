@@ -86,8 +86,12 @@ DATABASE_URL
 DEFAULT_ORGANIZATION_ID
 SUPABASE_URL
 SUPABASE_JWT_SECRET
+SUPABASE_SERVICE_ROLE_KEY
 ALLOWED_EMAIL_DOMAINS
 AUTH_REQUIRED
+DOCUMENT_STORAGE_BACKEND
+SUPABASE_STORAGE_BUCKET
+MAX_DOCUMENT_SIZE_BYTES
 UPLOAD_DIR
 CORS_ORIGINS
 EMBEDDING_MODEL_NAME
@@ -170,14 +174,26 @@ Successful response:
   "filename": "sample.pdf",
   "file_type": "pdf",
   "status": "uploaded",
-  "storage_path": "uploads/generated-uuid/sample.pdf",
+  "storage_path": "organizations/organization-uuid/documents/generated-uuid/sample.pdf",
   "metadata_stored": true,
   "chunks_stored": 3
 }
 ```
 
+Uploads are stored under the tenant-scoped object key
+`organizations/{organization_id}/documents/{document_id}/{filename}`.
+Set `DOCUMENT_STORAGE_BACKEND=supabase` and provide the server-only
+`SUPABASE_SERVICE_ROLE_KEY` in deployed environments. The private `documents`
+bucket is created by the ordered migrations. Local development can keep
+`DOCUMENT_STORAGE_BACKEND=local`, which stores the same object-key layout
+under `UPLOAD_DIR`.
+
+Uploads reject empty, oversized, unsupported, MIME-mismatched, or malformed
+files before metadata is created. Extraction uses a temporary downloaded copy,
+and failed processing removes both the database record and stored object.
+
 When `DATABASE_URL` is configured, uploads also create a row in the
-`documents` table and stores extracted text chunks in `document_chunks`.
+`documents` table and store extracted text chunks in `document_chunks`.
 During development, the backend uses
 `DEFAULT_ORGANIZATION_ID` and creates a temporary `Development Organization`
 record automatically.

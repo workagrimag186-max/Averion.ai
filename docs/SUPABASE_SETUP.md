@@ -123,6 +123,10 @@ Set:
 
 ```env
 DATABASE_URL=your_supabase_postgres_connection_string
+DOCUMENT_STORAGE_BACKEND=supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
+SUPABASE_STORAGE_BUCKET=documents
 DEFAULT_ORGANIZATION_ID=00000000-0000-0000-0000-000000000001
 ```
 

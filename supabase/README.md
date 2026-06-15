@@ -64,5 +64,9 @@ All application tables are server-only:
 - `anon` and `authenticated` have no table privileges or policies.
 - FastAPI uses a private PostgreSQL connection and organization-scoped queries.
 - Composite foreign keys prevent cross-organization references.
+- The private `documents` Storage bucket uses organization-scoped object keys.
+- Authenticated users can read and upload only inside their organization prefix.
+- Only organization owners can update or delete objects through Storage APIs.
+- FastAPI uses the service-role credential for coordinated object/database work.
 
 Never expose `DATABASE_URL` or a service-role credential to the browser.
