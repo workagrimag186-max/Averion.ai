@@ -92,9 +92,10 @@ Keep both values in `apps/api/.env` during local development.
 frontend and backend together. When set to `true`, FastAPI rejects requests that
 do not include a valid Supabase bearer token.
 
-## Step 5: Apply Profile Mapping Migration
+## Step 5: Apply Database Migrations
 
-If your Supabase database was created before issue 36, run [supabase_auth_profile_migration.sql](supabase_auth_profile_migration.sql) in the Supabase SQL Editor.
+Apply the ordered migration chain in
+[`supabase/migrations/`](../supabase/migrations/) before configuring auth.
 
 This adds profile mapping fields to the existing `users` table:
 
@@ -115,16 +116,17 @@ other's uploads.
 
 If multiple real test accounts were created before issue 46, they may still be
 inside the shared `Development Organization`. To split those existing accounts,
-run [supabase_private_workspaces_migration.sql](supabase_private_workspaces_migration.sql) in the Supabase SQL Editor.
+follow the optional legacy conversion instructions in
+[`supabase/README.md`](../supabase/README.md).
 
 After moving old accounts, re-upload or re-index old documents if vector search
 results still point to the previous development organization metadata.
 
-## Step 7: Apply Invitation Migration
+## Step 7: Verify Invitation Storage
 
-Issue 47 adds organization invitations and member removal. Run
-[supabase_organization_invitations_migration.sql](supabase_organization_invitations_migration.sql)
-in the Supabase SQL Editor before using the invite flow.
+Issue 47 adds organization invitations and member removal. The ordered migration
+chain creates `organization_invitations`; verify the complete schema with
+[`supabase/tests/verify_schema.sql`](../supabase/tests/verify_schema.sql).
 
 This creates `organization_invitations`, where pending invites are stored until
 the invited user signs in and accepts.

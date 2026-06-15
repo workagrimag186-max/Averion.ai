@@ -361,42 +361,19 @@ SELECT * FROM pg_extension WHERE extname = 'vector';
 
 #### Step 1.3: Apply Database Schema
 
-1. In SQL Editor, run each migration file from `docs/` in this order:
+Apply the ordered migration chain and verify it:
 
-**Migration 1: Auth Profile**
-```sql
--- From docs/supabase_auth_profile_migration.sql
--- Copy and paste the entire file content
--- Click "Run"
+```bash
+supabase link --project-ref <project-ref>
+supabase db push
+
+psql "$DATABASE_URL" --set ON_ERROR_STOP=1 \
+  --file supabase/tests/verify_schema.sql
 ```
 
-**Migration 2: Embeddings**
-```sql
--- From docs/supabase_pgvector_embeddings_migration.sql
--- Copy and paste the entire file content
--- Click "Run"
-```
-
-**Migration 3: Organizations**
-```sql
--- From docs/supabase_organization_invitations_migration.sql
--- Copy and paste the entire file content
--- Click "Run"
-```
-
-**Migration 4: Private Workspaces**
-```sql
--- From docs/supabase_private_workspaces_migration.sql
--- Copy and paste the entire file content
--- Click "Run"
-```
-
-**Migration 5: Language Preferences**
-```sql
--- From docs/supabase_language_preference_migration.sql
--- Copy and paste the entire file content
--- Click "Run"
-```
+For an existing database, follow the backup and consistency checks in
+`supabase/README.md`. The private-workspace conversion under
+`supabase/legacy/` is optional and never runs automatically.
 
 #### Step 1.4: Get Connection Details
 

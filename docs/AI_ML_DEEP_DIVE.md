@@ -396,7 +396,7 @@ def generate_embeddings(chunks: list[dict]) -> list[dict]:
 **Extension**: `pgvector`  
 **Purpose**: Native vector operations in PostgreSQL
 
-**Schema**: [`docs/supabase_pgvector_embeddings_migration.sql`](../docs/supabase_pgvector_embeddings_migration.sql)
+**Schema**: [`supabase/migrations/202606150003_invitations_and_embeddings.sql`](../supabase/migrations/202606150003_invitations_and_embeddings.sql)
 
 ```sql
 CREATE TABLE document_embeddings (

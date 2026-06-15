@@ -8,13 +8,26 @@ This test ensures that:
 """
 
 import pytest
-import uuid
 
-from app.ai.embeddings import embed_text
 from app.ai.retrieval import retrieve_chunks
 from app.ai.security import is_prompt_injection, filter_chunks_by_score
 from app.ai.vector_store import reset_collection, store_embeddings
 from app.core.config import settings
+
+
+def _test_embedding(text: str) -> list[float]:
+    """Return deterministic vectors that preserve the test's semantic groups."""
+    normalized = text.lower()
+    if "capital of france" in normalized:
+        return [0.0, 0.0, 0.0, 1.0]
+
+    embedding = [
+        1.0 if "fastapi" in normalized or "building apis" in normalized else 0.0,
+        1.0 if "python" in normalized or "programming" in normalized else 0.0,
+        1.0 if "machine learning" in normalized or "artificial intelligence" in normalized else 0.0,
+        0.0,
+    ]
+    return embedding if any(embedding) else [0.0, 0.0, 0.0, 1.0]
 
 
 @pytest.fixture(autouse=True)
@@ -22,6 +35,7 @@ def setup_test_data(monkeypatch):
     """Set up test documents before each test."""
     # Bypass database configuration check for tests
     monkeypatch.setattr("app.ai.vector_store.is_database_configured", lambda: False)
+    monkeypatch.setattr("app.ai.retrieval.embed_text", _test_embedding)
     
     reset_collection()
     
@@ -44,7 +58,7 @@ def setup_test_data(monkeypatch):
     
     all_chunks = []
     for i, text in enumerate(test_texts):
-        embedding = embed_text(text)
+        embedding = _test_embedding(text)
         all_chunks.append({
             "text": text,
             "document_id": test_doc_ids[i],

@@ -36,6 +36,7 @@ def mock_auth(monkeypatch):
     
     monkeypatch.setattr(chat, "get_request_context", lambda: mock_get_request_context())
     monkeypatch.setattr("app.ai.vector_store.is_database_configured", lambda: False)
+    monkeypatch.setattr(chat, "retrieve_chunks", lambda *args, **kwargs: [])
     reset_collection()
     
     # Mock store_chat_exchange to avoid database calls
