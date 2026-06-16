@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.*
+.pytest_cache/
+.venv/
+__pycache__/
+*.py[cod]
+chroma_db/
+uploads/
+vector_store/
+tests/
