@@ -86,6 +86,10 @@ class OrganizationInvitation:
     accepted_by_user_id: str | None = None
 
 
+class TeamAuthorizationError(RuntimeError):
+    pass
+
+
 def _ensure_organization(
     cursor,
     organization_id: str,
@@ -365,6 +369,7 @@ def get_team(organization_id: str) -> Team | None:
 def update_organization_name(
     *,
     organization_id: str,
+    actor_user_id: str,
     name: str
 ) -> Team | None:
     if not is_database_configured():
@@ -378,16 +383,24 @@ def update_organization_name(
                 set name = %s,
                     updated_at = now()
                 where id = %s::uuid
+                    and exists (
+                        select 1
+                        from users
+                        where users.id = %s::uuid
+                            and users.organization_id = organizations.id
+                            and users.role = 'owner'
+                    )
                 returning id::text
                 """,
                 (
                     name,
-                    organization_id
+                    organization_id,
+                    actor_user_id
                 )
             )
 
             if cursor.fetchone() is None:
-                return None
+                raise TeamAuthorizationError("Only organization owners can manage workspace settings.")
 
     return get_team(organization_id)
 
@@ -395,6 +408,7 @@ def update_organization_name(
 def update_team_member_role(
     *,
     organization_id: str,
+    actor_user_id: str,
     user_id: str,
     role: str
 ) -> TeamMember | None:
@@ -410,6 +424,14 @@ def update_team_member_role(
                     updated_at = now()
                 where id = %s::uuid
                     and organization_id = %s::uuid
+                    and id <> %s::uuid
+                    and exists (
+                        select 1
+                        from users as actor
+                        where actor.id = %s::uuid
+                            and actor.organization_id = users.organization_id
+                            and actor.role = 'owner'
+                    )
                 returning
                     id::text,
                     email,
@@ -420,7 +442,9 @@ def update_team_member_role(
                 (
                     role,
                     user_id,
-                    organization_id
+                    organization_id,
+                    actor_user_id,
+                    actor_user_id
                 )
             )
 
@@ -450,7 +474,17 @@ def create_organization_invitation(
                     invited_by_user_id,
                     expires_at
                 )
-                values (%s::uuid, %s, %s::uuid, %s)
+                select %s::uuid, %s, %s::uuid, %s
+                from users as inviter
+                where inviter.id = %s::uuid
+                    and inviter.organization_id = %s::uuid
+                    and inviter.role = 'owner'
+                    and not exists (
+                        select 1
+                        from users as existing_user
+                        where existing_user.organization_id = %s::uuid
+                            and lower(existing_user.email) = %s
+                    )
                 on conflict (organization_id, invited_email)
                     where status = 'pending'
                 do update set
@@ -477,11 +511,19 @@ def create_organization_invitation(
                     organization_id,
                     normalized_email,
                     invited_by_user_id,
-                    expires_at
+                    expires_at,
+                    invited_by_user_id,
+                    organization_id,
+                    organization_id,
+                    normalized_email
                 )
             )
 
-            return _row_to_invitation(cursor.fetchone())
+            row = cursor.fetchone()
+            if row is None:
+                raise TeamAuthorizationError("Invitation could not be created for this organization.")
+
+            return _row_to_invitation(row)
 
 
 def list_pending_invitations_for_email(email: str) -> list[OrganizationInvitation]:
@@ -543,6 +585,7 @@ def accept_organization_invitation(
                     and invited_email = %s
                     and status = 'pending'
                     and expires_at > now()
+                for update
                 """,
                 (
                     invitation_id,
@@ -596,12 +639,19 @@ def accept_organization_invitation(
                     accepted_by_user_id = %s::uuid,
                     updated_at = now()
                 where id = %s::uuid
+                    and invited_email = %s
+                    and status = 'pending'
+                    and expires_at > now()
+                returning id::text
                 """,
                 (
                     user_id,
-                    invitation_id
+                    invitation_id,
+                    normalized_email
                 )
             )
+            if cursor.fetchone() is None:
+                return None
 
             return _row_to_user_profile(user_row)
 
@@ -609,6 +659,7 @@ def accept_organization_invitation(
 def remove_team_member_from_organization(
     *,
     organization_id: str,
+    actor_user_id: str,
     user_id: str
 ) -> TeamMember | None:
     if not is_database_configured():
@@ -627,10 +678,20 @@ def remove_team_member_from_organization(
                 from users
                 where id = %s::uuid
                     and organization_id = %s::uuid
+                    and id <> %s::uuid
+                    and exists (
+                        select 1
+                        from users as actor
+                        where actor.id = %s::uuid
+                            and actor.organization_id = users.organization_id
+                            and actor.role = 'owner'
+                    )
                 """,
                 (
                     user_id,
-                    organization_id
+                    organization_id,
+                    actor_user_id,
+                    actor_user_id
                 )
             )
             member_row = cursor.fetchone()
