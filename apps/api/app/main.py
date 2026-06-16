@@ -12,6 +12,7 @@ from app.api.transcription import router as transcription_router
 from app.api.users import router as users_router
 from app.ai.embeddings import preload_embedding_model
 from app.core.config import settings
+from app.core.middleware import RequestSecurityMiddleware
 
 
 @asynccontextmanager
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"]
     )
+    app.add_middleware(RequestSecurityMiddleware)
 
     app.include_router(health_router)
     app.include_router(documents_router)
