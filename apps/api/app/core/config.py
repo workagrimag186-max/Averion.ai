@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     document_max_chunks: int = 2_000
     embedding_batch_size: int = 32
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    security_headers_enabled: bool = True
+    request_logging_enabled: bool = True
     vector_db_path: str | None = None
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     retrieval_top_k: int = 5
