@@ -68,3 +68,42 @@ def test_database_health_check_returns_degraded_when_disconnected(monkeypatch) -
     "connected": False,
     "error": "DATABASE_URL is not configured."
   }
+
+
+def test_ai_health_check_returns_ok_for_local_defaults() -> None:
+  response = client.get("/health/ai")
+
+  assert response.status_code == 200
+  payload = response.json()
+  assert payload["status"] == "ok"
+  assert {component["name"] for component in payload["components"]} == {
+    "chat",
+    "transcription",
+    "embeddings"
+  }
+  transcription = next(
+    component
+    for component in payload["components"]
+    if component["name"] == "transcription"
+  )
+  assert transcription["status"] == "disabled"
+  assert transcription["ready"] is True
+
+
+def test_ai_health_check_detects_missing_external_chat_key(monkeypatch) -> None:
+  monkeypatch.setattr("app.ai.readiness.settings.llm_provider", "openai")
+  monkeypatch.setattr("app.ai.readiness.settings.llm_provider_api_key", "")
+
+  response = client.get("/health/ai")
+
+  assert response.status_code == 200
+  payload = response.json()
+  chat = next(
+    component
+    for component in payload["components"]
+    if component["name"] == "chat"
+  )
+  assert payload["status"] == "degraded"
+  assert chat["status"] == "degraded"
+  assert chat["ready"] is False
+  assert chat["error"] == "missing_api_key"

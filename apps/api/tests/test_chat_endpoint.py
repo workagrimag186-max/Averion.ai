@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.core.auth import RequestContext, get_request_context
 from app.core.config import settings
+from app.ai.provider_utils import ProviderRequestError
 from app.db.chat import ConversationNotFoundError, StoredChatMessages
 from app.db.documents import DatabaseNotConfiguredError
 from app.main import app
@@ -207,7 +208,7 @@ def test_chat_endpoint_uses_authenticated_organization_scope(monkeypatch) -> Non
     assert "don't have enough information" in response.json()["answer"].lower()
 
 
-def test_chat_endpoint_returns_500_for_llm_provider_error(monkeypatch) -> None:
+def test_chat_endpoint_returns_safe_503_for_llm_provider_error(monkeypatch) -> None:
     def fake_store_chat_exchange(**kwargs) -> StoredChatMessages:
         return StoredChatMessages(
             conversation_id="conv_error",
@@ -215,19 +216,38 @@ def test_chat_endpoint_returns_500_for_llm_provider_error(monkeypatch) -> None:
             assistant_message_id="msg_assistant_error"
         )
 
-    monkeypatch.setattr("app.api.chat.retrieve_chunks", lambda query, top_k, organization_id, min_score=None: [])
+    def fake_retrieve_chunks(query: str, top_k: int, organization_id: str, min_score: float | None = None) -> list[dict]:
+        return [
+            {
+                "document_id": "doc_123",
+                "chunk_index": 0,
+                "chunk_id": "doc_123:0",
+                "filename": "policy.pdf",
+                "page_number": 4,
+                "text": "Refunds are available within 30 days.",
+                "score": 0.12
+            }
+        ]
+
+    def fake_generate_answer(prompt: str, chunks: list[dict] | None = None) -> str:
+        raise ProviderRequestError("AI provider is temporarily unavailable. Please try again.")
+
+    monkeypatch.setattr("app.api.chat.is_conversational_query", lambda q: (False, None))
+    monkeypatch.setattr("app.api.chat.retrieve_chunks", fake_retrieve_chunks)
+    monkeypatch.setattr("app.api.chat.generate_answer", fake_generate_answer)
     monkeypatch.setattr("app.api.chat.store_chat_exchange", fake_store_chat_exchange)
 
     response = client.post(
         "/chat",
         json={
             "conversation_id": None,
-            "question": "Hello?"
+            "question": "What is the refund policy?"
         }
     )
 
-    # Conversational response should succeed
-    assert response.status_code == 200
+    assert response.status_code == 503
+    assert response.json()["detail"] == "AI provider is temporarily unavailable. Please try again."
+    assert "sk-" not in response.text
 
 
 def test_chat_endpoint_returns_503_when_database_is_not_configured(monkeypatch) -> None:

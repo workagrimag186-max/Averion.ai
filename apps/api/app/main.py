@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,14 +10,23 @@ from app.api.feedback import router as feedback_router
 from app.api.health import router as health_router
 from app.api.transcription import router as transcription_router
 from app.api.users import router as users_router
+from app.ai.embeddings import preload_embedding_model
 from app.core.config import settings
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.embedding_model_preload:
+        preload_embedding_model()
+    yield
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="Backend API and AI service for Averion.ai."
+        description="Backend API and AI service for Averion.ai.",
+        lifespan=lifespan
     )
 
     app.add_middleware(

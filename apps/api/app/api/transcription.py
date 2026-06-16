@@ -7,6 +7,7 @@ Provides speech-to-text transcription using Groq Whisper API.
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
+from app.ai.provider_utils import AIProviderError
 from app.ai.transcription_service import transcribe_audio
 
 router = APIRouter(prefix="/transcribe", tags=["transcription"])
@@ -77,11 +78,10 @@ async def transcribe_audio_file(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc)
         ) from exc
-    except Exception as exc:
-        # Server errors (API failures, etc.)
+    except AIProviderError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Transcription service error: {str(exc)}"
+            detail=exc.public_message
         ) from exc
 
 

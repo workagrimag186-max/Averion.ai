@@ -1,15 +1,23 @@
-"""
-Transcription Service
-
-Provides speech-to-text transcription using Groq Whisper API.
-Replaces browser-based SpeechRecognition with production-grade server-side transcription.
-Supports multi-language transcription.
-"""
+"""Speech-to-text transcription using an independently configured provider."""
 
 import tempfile
 from pathlib import Path
 
 from app.core.config import settings
+from app.ai.provider_utils import (
+    ProviderConfigurationError,
+    ProviderRequestError,
+    provider_failure_message,
+    run_with_retries,
+)
+
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
+
+def _get_openai_client_class():
+    from openai import OpenAI
+
+    return OpenAI
 
 # Language code mapping for Whisper API
 # Whisper uses ISO 639-1 codes
@@ -35,13 +43,9 @@ def transcribe_audio(audio_data: bytes, filename: str = "audio.webm", language: 
         Transcribed text
         
     Raises:
-        ValueError: If API key is not configured or audio is invalid
-        Exception: If transcription fails
+        ValueError: If audio is invalid
+        AIProviderError: If provider config or request fails
     """
-    # Validate API key
-    if not settings.llm_provider_api_key:
-        raise ValueError("Groq API key is not configured. Set LLM_PROVIDER_API_KEY in .env")
-    
     # Validate audio data
     if not audio_data or len(audio_data) == 0:
         raise ValueError("Audio data is empty")
@@ -51,35 +55,54 @@ def transcribe_audio(audio_data: bytes, filename: str = "audio.webm", language: 
     if len(audio_data) > max_size:
         raise ValueError(f"Audio file too large. Maximum size is 25MB, got {len(audio_data) / 1024 / 1024:.2f}MB")
     
-    try:
-        # Import OpenAI client (Groq uses OpenAI-compatible API)
-        try:
-            from openai import OpenAI
-        except ImportError:
-            raise ValueError("OpenAI library is not installed. Run: pip install openai")
-        
-        # Initialize Groq client
-        client = OpenAI(
-            api_key=settings.llm_provider_api_key,
-            base_url="https://api.groq.com/openai/v1"
+    provider = settings.transcription_provider.lower()
+    if provider == "disabled":
+        raise ProviderConfigurationError(
+            "Transcription provider is not configured.",
+            provider=provider
         )
+    if provider not in {"openai", "groq"}:
+        raise ProviderConfigurationError(
+            "Unsupported transcription provider configured.",
+            provider=provider
+        )
+    if not settings.transcription_provider_api_key:
+        raise ProviderConfigurationError(
+            "Transcription provider is not configured.",
+            provider=provider
+        )
+
+    try:
+        OpenAI = _get_openai_client_class()
+    except ImportError as exc:
+        raise ProviderConfigurationError(
+            "OpenAI-compatible client is not installed.",
+            provider=provider
+        ) from exc
+
+    base_url = settings.transcription_provider_base_url
+    if provider == "groq" and not base_url:
+        base_url = GROQ_BASE_URL
+
+    client_kwargs = {
+        "api_key": settings.transcription_provider_api_key,
+        "timeout": settings.transcription_timeout_seconds,
+        "max_retries": 0
+    }
+    if base_url:
+        client_kwargs["base_url"] = base_url
+
+    client = OpenAI(**client_kwargs)
+
+    # Groq/OpenAI Whisper supports: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm.
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as temp_file:
+        temp_file.write(audio_data)
+        temp_file_path = temp_file.name
         
-        print(f"[DEBUG] Transcribing audio file: {filename} ({len(audio_data)} bytes)")
-        
-        # Create temporary file for audio
-        # Groq Whisper supports: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as temp_file:
-            temp_file.write(audio_data)
-            temp_file_path = temp_file.name
-        
-        try:
-            # Open file and send to Groq Whisper
+    try:
+        def operation() -> str:
             with open(temp_file_path, "rb") as audio_file:
-                # Use Whisper large v3 model (most accurate)
-                # Set language for better accuracy
                 whisper_language = SUPPORTED_LANGUAGES.get(language, "en")
-                
-                # Create prompt to encourage staying in original language
                 language_names = {
                     "en": "English",
                     "hi": "Hindi",
@@ -89,52 +112,39 @@ def transcribe_audio(audio_data: bytes, filename: str = "audio.webm", language: 
                     "ja": "Japanese"
                 }
                 prompt_text = f"Transcribe this audio in {language_names.get(language, 'English')}. Do not translate."
-                
+
                 transcription = client.audio.transcriptions.create(
-                    model="whisper-large-v3",
+                    model=settings.transcription_model_name,
                     file=audio_file,
                     response_format="text",
-                    language=whisper_language,  # Specify language for better accuracy
-                    prompt=prompt_text  # Encourage staying in original language
+                    language=whisper_language,
+                    prompt=prompt_text
                 )
-            
-            # Extract transcript
+
             if isinstance(transcription, str):
                 transcript = transcription
             else:
                 transcript = transcription.text if hasattr(transcription, 'text') else str(transcription)
-            
+
             transcript = transcript.strip()
-            
             if not transcript:
-                raise ValueError("Transcription returned empty text")
-            
-            print(f"[DEBUG] Transcription successful: {len(transcript)} characters")
+                raise ProviderRequestError(
+                    provider_failure_message("Transcription provider"),
+                    provider=provider
+                )
             return transcript
-            
-        finally:
-            # Clean up temporary file
-            try:
-                Path(temp_file_path).unlink()
-            except Exception as e:
-                print(f"[WARNING] Failed to delete temp file: {e}")
-    
-    except Exception as e:
-        error_msg = str(e)
-        print(f"[ERROR] Transcription failed: {error_msg}")
-        print(f"[ERROR] Error type: {type(e).__name__}")
-        
-        # Provide user-friendly error messages
-        if "api_key" in error_msg.lower() or "authentication" in error_msg.lower():
-            raise ValueError(f"API key error: {error_msg}. Please check your Groq API key.")
-        elif "rate_limit" in error_msg.lower():
-            raise ValueError("Rate limit exceeded. Please try again in a moment.")
-        elif "model" in error_msg.lower():
-            raise ValueError(f"Model error: {error_msg}. Whisper model may not be available.")
-        elif "file" in error_msg.lower() or "format" in error_msg.lower():
-            raise ValueError(f"Audio format error: {error_msg}. Supported formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm")
-        else:
-            raise Exception(f"Transcription failed: {error_msg}")
+
+        return run_with_retries(
+            operation,
+            provider=provider,
+            attempts=settings.transcription_max_retries + 1,
+            public_message=provider_failure_message("Transcription provider")
+        )
+    finally:
+        try:
+            Path(temp_file_path).unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 # Made with Bob
