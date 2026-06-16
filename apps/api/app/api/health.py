@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 
+from app.ai.readiness import get_ai_readiness
 from app.core.config import settings
 from app.db.connection import check_database_connection
-from app.schemas.health import DatabaseHealthResponse, HealthResponse
+from app.schemas.health import AIHealthResponse, DatabaseHealthResponse, HealthResponse
 
 router = APIRouter(tags=["health"])
 
@@ -26,3 +27,8 @@ def database_health_check() -> DatabaseHealthResponse:
         connected=connection_check.connected,
         error=connection_check.error
     )
+
+
+@router.get("/health/ai", response_model=AIHealthResponse)
+def ai_health_check() -> AIHealthResponse:
+    return AIHealthResponse(**get_ai_readiness())

@@ -9,6 +9,7 @@ from app.ai.conversational import (
 )
 from app.ai.llm_service import generate_answer
 from app.ai.prompt_builder import build_rag_prompt
+from app.ai.provider_utils import AIProviderError
 from app.ai.retrieval import retrieve_chunks
 from app.ai.security import (
     contains_sensitive_data,
@@ -238,9 +239,11 @@ async def chat(
     except HTTPException:
         # Re-raise HTTPException (includes prompt injection blocks, validation errors, etc.)
         raise
-    except ValueError as e:
-        # Handle LLM provider errors
-        raise HTTPException(status_code=500, detail=str(e))
+    except AIProviderError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=e.public_message
+        ) from e
     except DatabaseNotConfiguredError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except ConversationNotFoundError as e:

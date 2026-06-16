@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 MODEL_NAME = settings.embedding_model_name
 _model: Any | None = None
+_model_error: str | None = None
 
 
 def get_embedding_model() -> Any:
@@ -17,7 +18,7 @@ def get_embedding_model() -> Any:
     Keeping model loading out of module import makes tests and app startup safer.
     The first embedding call may still download/load the model.
     """
-    global _model
+    global _model, _model_error
 
     if _model is None:
         # Keep the local AI stack friendly to laptops with limited memory.
@@ -36,8 +37,29 @@ def get_embedding_model() -> Any:
                 MODEL_NAME
             )
             _model = SentenceTransformer(MODEL_NAME)
+        _model_error = None
 
     return _model
+
+
+def preload_embedding_model() -> bool:
+    """Load the embedding model during startup when configured."""
+    global _model_error
+    try:
+        get_embedding_model()
+        return True
+    except Exception as exc:
+        _model_error = type(exc).__name__
+        logger.exception("Embedding model preload failed")
+        return False
+
+
+def get_embedding_model_status() -> dict[str, str | bool | None]:
+    return {
+        "model": MODEL_NAME,
+        "loaded": _model is not None,
+        "error": _model_error
+    }
 
 
 def embed_text(text: str) -> list[float]:

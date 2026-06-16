@@ -1,11 +1,20 @@
-"""
-LLM Service
-
-Provider-agnostic interface for generating answers using LLM providers.
-Supports OpenAI, Groq, and mock provider for testing.
-"""
+"""Provider-agnostic interface for generating chat answers."""
 
 from app.core.config import settings
+from app.ai.provider_utils import (
+    ProviderConfigurationError,
+    ProviderRequestError,
+    provider_failure_message,
+    run_with_retries,
+)
+
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
+
+def _get_openai_client_class():
+    from openai import OpenAI
+
+    return OpenAI
 
 
 def generate_answer(prompt: str, chunks: list[dict] | None = None) -> str:
@@ -20,7 +29,7 @@ def generate_answer(prompt: str, chunks: list[dict] | None = None) -> str:
         Final answer string from the LLM
         
     Raises:
-        ValueError: If the LLM provider is not supported
+        AIProviderError: If the configured provider cannot generate an answer
         
     Security:
         - ONLY passes the generated prompt to the LLM
@@ -33,156 +42,67 @@ def generate_answer(prompt: str, chunks: list[dict] | None = None) -> str:
     # Route to appropriate provider
     provider = settings.llm_provider.lower()
     
-    if provider == "openai":
-        return _call_openai(prompt)
-    elif provider == "groq":
-        return _call_groq(prompt)
-    elif provider == "mock":
+    if provider in {"openai", "groq"}:
+        return _call_openai_compatible_chat(prompt, provider)
+    if provider == "mock":
         return _call_mock(prompt, chunks or [])
-    else:
-        raise ValueError(f"Unsupported LLM provider: {settings.llm_provider}")
+    raise ProviderConfigurationError(
+        "Unsupported chat provider configured.",
+        provider=provider
+    )
 
 
-def _call_openai(prompt: str) -> str:
-    """
-    Call OpenAI API to generate an answer.
-    
-    Args:
-        prompt: The complete prompt string
-        
-    Returns:
-        Answer from OpenAI
-    """
+def _call_openai_compatible_chat(prompt: str, provider: str) -> str:
+    """Call an OpenAI-compatible chat provider."""
+    if not settings.llm_provider_api_key:
+        raise ProviderConfigurationError(
+            "Chat provider is not configured.",
+            provider=provider
+        )
+
     try:
-        # Check for API key
-        if not settings.llm_provider_api_key:
-            print("[ERROR] OpenAI API key is not configured")
-            return "Failed to generate answer. OpenAI API key is not configured."
-        
-        print(f"[DEBUG] Using OpenAI model: {settings.llm_model_name}")
-        print(f"[DEBUG] API key present: {len(settings.llm_provider_api_key)} chars")
-        
-        # Import OpenAI client
-        try:
-            from openai import OpenAI
-        except ImportError as e:
-            print(f"[ERROR] OpenAI library import failed: {e}")
-            return "Failed to generate answer. OpenAI library is not installed. Run: pip install openai"
-        
-        # Initialize client
-        client = OpenAI(api_key=settings.llm_provider_api_key)
-        
-        print("[DEBUG] Calling OpenAI API...")
-        
-        # Call chat completion API
+        OpenAI = _get_openai_client_class()
+    except ImportError as exc:
+        raise ProviderConfigurationError(
+            "OpenAI-compatible client is not installed.",
+            provider=provider
+        ) from exc
+
+    base_url = settings.llm_provider_base_url
+    if provider == "groq" and not base_url:
+        base_url = GROQ_BASE_URL
+
+    client_kwargs = {
+        "api_key": settings.llm_provider_api_key,
+        "timeout": settings.llm_provider_timeout_seconds,
+        "max_retries": 0
+    }
+    if base_url:
+        client_kwargs["base_url"] = base_url
+
+    client = OpenAI(**client_kwargs)
+
+    def operation() -> str:
         response = client.chat.completions.create(
             model=settings.llm_model_name,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
             temperature=settings.llm_temperature,
             max_tokens=settings.llm_max_tokens
         )
-        
-        # Extract answer
         answer = response.choices[0].message.content
-        
         if not answer:
-            print("[ERROR] OpenAI returned empty response")
-            return "Failed to generate answer. Please try again."
-        
-        print(f"[DEBUG] OpenAI response received: {len(answer)} chars")
+            raise ProviderRequestError(
+                provider_failure_message("AI provider"),
+                provider=provider
+            )
         return answer.strip()
-        
-    except Exception as e:
-        # Log detailed error
-        error_msg = str(e)
-        print(f"[ERROR] OpenAI API error: {error_msg}")
-        print(f"[ERROR] Error type: {type(e).__name__}")
-        
-        # Return user-friendly message with hint
-        if "api_key" in error_msg.lower() or "authentication" in error_msg.lower():
-            return f"Failed to generate answer. API key error: {error_msg}. Please check your OpenAI API key."
-        elif "rate_limit" in error_msg.lower():
-            return "Failed to generate answer. Rate limit exceeded. Please try again in a moment."
-        elif "model" in error_msg.lower():
-            return f"Failed to generate answer. Model error: {error_msg}. Check LLM_MODEL_NAME in .env"
-        else:
-            return f"Failed to generate answer: {error_msg}"
 
-
-def _call_groq(prompt: str) -> str:
-    """
-    Call Groq API to generate an answer.
-    
-    Args:
-        prompt: The complete prompt string
-        
-    Returns:
-        Answer from Groq
-    """
-    try:
-        # Check for API key
-        if not settings.llm_provider_api_key:
-            print("[ERROR] Groq API key is not configured")
-            return "Failed to generate answer. Groq API key is not configured."
-        
-        # Use a currently supported Groq model
-        # Options: llama-3.3-70b-versatile, llama-3.1-70b-versatile, mixtral-8x7b-32768
-        groq_model = "llama-3.3-70b-versatile"
-        
-        print(f"[DEBUG] Using Groq model: {groq_model}")
-        print(f"[DEBUG] API key present: {len(settings.llm_provider_api_key)} chars")
-        
-        # Import OpenAI client
-        try:
-            from openai import OpenAI
-        except ImportError as e:
-            print(f"[ERROR] OpenAI library import failed: {e}")
-            return "Failed to generate answer. OpenAI library is not installed. Run: pip install openai"
-        
-        # Initialize client with Groq base URL
-        client = OpenAI(
-            api_key=settings.llm_provider_api_key,
-            base_url="https://api.groq.com/openai/v1"
-        )
-        
-        print("[DEBUG] Calling Groq API...")
-        
-        # Call chat completion API
-        response = client.chat.completions.create(
-            model=groq_model,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2
-        )
-        
-        # Extract answer
-        answer = response.choices[0].message.content
-        
-        if not answer:
-            print("[ERROR] Groq returned empty response")
-            return "Failed to generate answer. Please try again."
-        
-        print(f"[DEBUG] Groq response received: {len(answer)} chars")
-        return answer.strip()
-        
-    except Exception as e:
-        # Log detailed error
-        error_msg = str(e)
-        print(f"[ERROR] Groq API error: {error_msg}")
-        print(f"[ERROR] Error type: {type(e).__name__}")
-        
-        # Return user-friendly message with hint
-        if "api_key" in error_msg.lower() or "authentication" in error_msg.lower():
-            return f"Failed to generate answer. API key error: {error_msg}. Please check your Groq API key."
-        elif "rate_limit" in error_msg.lower():
-            return "Failed to generate answer. Rate limit exceeded. Please try again in a moment."
-        elif "model" in error_msg.lower():
-            return f"Failed to generate answer. Model error: {error_msg}. The model 'llama3-8b-8192' may not be available."
-        else:
-            return f"Failed to generate answer: {error_msg}"
+    return run_with_retries(
+        operation,
+        provider=provider,
+        attempts=settings.llm_provider_max_retries + 1,
+        public_message=provider_failure_message("AI provider")
+    )
 
 
 def _call_mock(prompt: str, chunks: list[dict]) -> str:

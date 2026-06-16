@@ -26,25 +26,25 @@ class Settings(BaseSettings):
     vector_db_path: str | None = None
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     retrieval_top_k: int = 5
-    # Cosine distance threshold: 0.0 (identical) to 2.0 (opposite)
+    # Cosine distance threshold: 0.0 (identical) to 2.0 (opposite).
     # Lower scores = more similar. Threshold = max acceptable distance.
-    #
-    # IMPORTANT: all-MiniLM-L6-v2 produces NORMALIZED embeddings
-    # Typical score ranges for this model:
-    # - 0.0-0.4: Highly similar (near duplicates)
-    # - 0.4-0.8: Moderately similar (related topics)
-    # - 0.8-1.2: Somewhat similar (loosely related)
-    # - 1.2-1.5: Weakly similar (tangentially related)
-    # - 1.5-2.0: Dissimilar (unrelated)
-    #
-    # Setting to 1.3 allows moderately to somewhat similar content
-    # This is the optimal threshold for practical RAG with this model
-    retrieval_min_score: float = 1.3
+    # Evaluation tests keep this default strict enough to reject unrelated text.
+    retrieval_min_score: float = 0.8
     llm_provider: str = "mock"
     llm_provider_api_key: str = ""
+    llm_provider_base_url: str | None = None
+    llm_provider_timeout_seconds: float = 30.0
+    llm_provider_max_retries: int = 2
     llm_model_name: str = "gpt-4o-mini"
     llm_temperature: float = 0.2
     llm_max_tokens: int = 1000
+    transcription_provider: str = "disabled"
+    transcription_provider_api_key: str = ""
+    transcription_provider_base_url: str | None = None
+    transcription_model_name: str = "whisper-large-v3"
+    transcription_timeout_seconds: float = 60.0
+    transcription_max_retries: int = 2
+    embedding_model_preload: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
