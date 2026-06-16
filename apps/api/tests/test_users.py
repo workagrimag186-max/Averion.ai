@@ -11,8 +11,13 @@ from app.db.users import (
     Team,
     TeamMember,
     UserProfile,
+    accept_organization_invitation,
+    create_organization_invitation,
     get_or_create_user_profile,
-    get_user_profile_by_auth_id
+    get_user_profile_by_auth_id,
+    remove_team_member_from_organization,
+    TeamAuthorizationError,
+    update_team_member_role
 )
 from app.main import app
 
@@ -278,6 +283,197 @@ def test_get_or_create_user_profile_merges_duplicate_email_profiles(
     )
 
 
+def test_update_team_member_role_enforces_actor_owner_in_same_organization(monkeypatch) -> None:
+    cursor = FakeCursor(
+        rows=[
+            (
+                "00000000-0000-0000-0000-000000000502",
+                "member@example.com",
+                "Member User",
+                None,
+                "owner"
+            )
+        ]
+    )
+
+    monkeypatch.setattr("app.db.users.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.db.users.psycopg.connect",
+        lambda *_args, **_kwargs: FakeConnection(cursor)
+    )
+
+    member = update_team_member_role(
+        organization_id=settings.default_organization_id,
+        actor_user_id="00000000-0000-0000-0000-000000000501",
+        user_id="00000000-0000-0000-0000-000000000502",
+        role="owner"
+    )
+
+    query, params = cursor.statements[0]
+    assert member.role == "owner"
+    assert "actor.organization_id = users.organization_id" in query
+    assert "actor.role = 'owner'" in query
+    assert "and id <> %s::uuid" in query
+    assert params == (
+        "owner",
+        "00000000-0000-0000-0000-000000000502",
+        settings.default_organization_id,
+        "00000000-0000-0000-0000-000000000501",
+        "00000000-0000-0000-0000-000000000501"
+    )
+
+
+def test_create_invitation_requires_owner_and_rejects_existing_member_email(monkeypatch) -> None:
+    cursor = FakeCursor(
+        rows=[
+            (
+                "00000000-0000-0000-0000-000000000601",
+                settings.default_organization_id,
+                "Averion.ai",
+                "friend@example.com",
+                "00000000-0000-0000-0000-000000000501",
+                "pending",
+                "2026-06-08T00:00:00+00:00",
+                "2026-06-01T00:00:00+00:00",
+                None,
+                None
+            )
+        ]
+    )
+
+    monkeypatch.setattr("app.db.users.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.db.users.psycopg.connect",
+        lambda *_args, **_kwargs: FakeConnection(cursor)
+    )
+
+    invitation = create_organization_invitation(
+        organization_id=settings.default_organization_id,
+        invited_by_user_id="00000000-0000-0000-0000-000000000501",
+        invited_email="Friend@Example.com"
+    )
+
+    query, params = cursor.statements[0]
+    assert invitation.invited_email == "friend@example.com"
+    assert "inviter.role = 'owner'" in query
+    assert "inviter.organization_id = %s::uuid" in query
+    assert "not exists" in query
+    assert "lower(existing_user.email) = %s" in query
+    assert params[4:] == (
+        "00000000-0000-0000-0000-000000000501",
+        settings.default_organization_id,
+        settings.default_organization_id,
+        "friend@example.com"
+    )
+
+
+def test_create_invitation_raises_when_inviter_is_not_authorized(monkeypatch) -> None:
+    cursor = FakeCursor(rows=[None])
+
+    monkeypatch.setattr("app.db.users.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.db.users.psycopg.connect",
+        lambda *_args, **_kwargs: FakeConnection(cursor)
+    )
+
+    with pytest.raises(TeamAuthorizationError):
+        create_organization_invitation(
+            organization_id=settings.default_organization_id,
+            invited_by_user_id="00000000-0000-0000-0000-000000000502",
+            invited_email="friend@example.com"
+        )
+
+
+def test_accept_invitation_locks_and_updates_only_matching_pending_email(monkeypatch) -> None:
+    target_organization_id = "00000000-0000-0000-0000-000000000777"
+    user_id = "00000000-0000-0000-0000-000000000502"
+    cursor = FakeCursor(
+        rows=[
+            (target_organization_id,),
+            (
+                user_id,
+                target_organization_id,
+                "00000000-0000-0000-0000-000000000402",
+                "friend@example.com",
+                "Friend User",
+                None,
+                None,
+                "member",
+                "en"
+            ),
+            ("00000000-0000-0000-0000-000000000601",)
+        ]
+    )
+
+    monkeypatch.setattr("app.db.users.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.db.users.psycopg.connect",
+        lambda *_args, **_kwargs: FakeConnection(cursor)
+    )
+
+    profile = accept_organization_invitation(
+        invitation_id="00000000-0000-0000-0000-000000000601",
+        user_id=user_id,
+        email="Friend@Example.com"
+    )
+
+    invitation_lookup_query, _lookup_params = cursor.statements[0]
+    invitation_update_query, invitation_update_params = cursor.statements[2]
+    assert profile.organization_id == target_organization_id
+    assert "for update" in invitation_lookup_query
+    assert "and invited_email = %s" in invitation_update_query
+    assert "and status = 'pending'" in invitation_update_query
+    assert "and expires_at > now()" in invitation_update_query
+    assert "returning id::text" in invitation_update_query
+    assert invitation_update_params == (
+        user_id,
+        "00000000-0000-0000-0000-000000000601",
+        "friend@example.com"
+    )
+
+
+def test_remove_member_requires_actor_owner_and_same_organization(monkeypatch) -> None:
+    user_id = "00000000-0000-0000-0000-000000000502"
+    actor_user_id = "00000000-0000-0000-0000-000000000501"
+    private_organization_id = "00000000-0000-0000-0000-000000000888"
+    cursor = FakeCursor(
+        rows=[
+            (
+                user_id,
+                "member@example.com",
+                "Member User",
+                None,
+                "member"
+            ),
+            (private_organization_id,)
+        ]
+    )
+
+    monkeypatch.setattr("app.db.users.is_database_configured", lambda: True)
+    monkeypatch.setattr(
+        "app.db.users.psycopg.connect",
+        lambda *_args, **_kwargs: FakeConnection(cursor)
+    )
+
+    member = remove_team_member_from_organization(
+        organization_id=settings.default_organization_id,
+        actor_user_id=actor_user_id,
+        user_id=user_id
+    )
+
+    query, params = cursor.statements[0]
+    assert member.user_id == user_id
+    assert "actor.organization_id = users.organization_id" in query
+    assert "actor.role = 'owner'" in query
+    assert "and id <> %s::uuid" in query
+    assert params == (
+        user_id,
+        settings.default_organization_id,
+        actor_user_id,
+        actor_user_id
+    )
+
+
 def test_get_current_user_profile_returns_database_profile(monkeypatch) -> None:
     captured_scope = {}
 
@@ -500,8 +696,9 @@ def test_owner_can_update_organization_name(monkeypatch) -> None:
             is_authenticated=True
         )
 
-    def fake_update_organization_name(*, organization_id: str, name: str):
+    def fake_update_organization_name(*, organization_id: str, actor_user_id: str, name: str):
         captured_update["organization_id"] = organization_id
+        captured_update["actor_user_id"] = actor_user_id
         captured_update["name"] = name
 
         return Team(
@@ -527,6 +724,7 @@ def test_owner_can_update_organization_name(monkeypatch) -> None:
     assert response.status_code == 200
     assert captured_update == {
         "organization_id": settings.default_organization_id,
+        "actor_user_id": "00000000-0000-0000-0000-000000000501",
         "name": "Averion.ai"
     }
     assert response.json()["organization_name"] == "Averion.ai"
@@ -545,8 +743,9 @@ def test_owner_can_update_team_member_role(monkeypatch) -> None:
             is_authenticated=True
         )
 
-    def fake_update_team_member_role(*, organization_id: str, user_id: str, role: str):
+    def fake_update_team_member_role(*, organization_id: str, actor_user_id: str, user_id: str, role: str):
         captured_update["organization_id"] = organization_id
+        captured_update["actor_user_id"] = actor_user_id
         captured_update["user_id"] = user_id
         captured_update["role"] = role
 
@@ -575,6 +774,7 @@ def test_owner_can_update_team_member_role(monkeypatch) -> None:
     assert response.status_code == 200
     assert captured_update == {
         "organization_id": settings.default_organization_id,
+        "actor_user_id": "00000000-0000-0000-0000-000000000501",
         "user_id": "00000000-0000-0000-0000-000000000502",
         "role": "owner"
     }
@@ -594,8 +794,9 @@ def test_owner_can_demote_another_owner(monkeypatch) -> None:
             is_authenticated=True
         )
 
-    def fake_update_team_member_role(*, organization_id: str, user_id: str, role: str):
+    def fake_update_team_member_role(*, organization_id: str, actor_user_id: str, user_id: str, role: str):
         captured_update["organization_id"] = organization_id
+        captured_update["actor_user_id"] = actor_user_id
         captured_update["user_id"] = user_id
         captured_update["role"] = role
 
@@ -624,6 +825,7 @@ def test_owner_can_demote_another_owner(monkeypatch) -> None:
     assert response.status_code == 200
     assert captured_update == {
         "organization_id": settings.default_organization_id,
+        "actor_user_id": "00000000-0000-0000-0000-000000000501",
         "user_id": "00000000-0000-0000-0000-000000000503",
         "role": "member"
     }
@@ -836,9 +1038,11 @@ def test_owner_can_remove_team_member(monkeypatch) -> None:
     def fake_remove_team_member_from_organization(
         *,
         organization_id: str,
+        actor_user_id: str,
         user_id: str
     ):
         captured_remove["organization_id"] = organization_id
+        captured_remove["actor_user_id"] = actor_user_id
         captured_remove["user_id"] = user_id
 
         return TeamMember(
@@ -865,6 +1069,7 @@ def test_owner_can_remove_team_member(monkeypatch) -> None:
     assert response.status_code == 200
     assert captured_remove == {
         "organization_id": settings.default_organization_id,
+        "actor_user_id": "00000000-0000-0000-0000-000000000501",
         "user_id": "00000000-0000-0000-0000-000000000502"
     }
     assert response.json()["email"] == "member@example.com"

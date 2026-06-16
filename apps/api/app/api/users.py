@@ -10,6 +10,7 @@ from app.db.users import (
     get_team,
     list_pending_invitations_for_email,
     remove_team_member_from_organization,
+    TeamAuthorizationError,
     update_account_profile,
     update_organization_name,
     update_team_member_role
@@ -60,6 +61,13 @@ def _require_owner(context: RequestContext) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only organization owners can manage workspace settings."
         )
+
+
+def _raise_owner_forbidden(exc: TeamAuthorizationError) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=str(exc)
+    ) from exc
 
 
 def _team_response_from_record(team) -> TeamResponse:
@@ -173,6 +181,7 @@ def update_current_user_organization(
     try:
         team = update_organization_name(
             organization_id=context.organization_id,
+            actor_user_id=context.user_id,
             name=request.name
         )
     except DatabaseNotConfiguredError as exc:
@@ -180,6 +189,8 @@ def update_current_user_organization(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc)
         ) from exc
+    except TeamAuthorizationError as exc:
+        _raise_owner_forbidden(exc)
 
     if team is None:
         raise HTTPException(
@@ -207,6 +218,7 @@ def update_current_user_team_member_role(
     try:
         member = update_team_member_role(
             organization_id=context.organization_id,
+            actor_user_id=context.user_id,
             user_id=user_id,
             role=request.role
         )
@@ -215,6 +227,8 @@ def update_current_user_team_member_role(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc)
         ) from exc
+    except TeamAuthorizationError as exc:
+        _raise_owner_forbidden(exc)
 
     if member is None:
         raise HTTPException(
@@ -249,6 +263,8 @@ def create_current_user_organization_invitation(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc)
         ) from exc
+    except TeamAuthorizationError as exc:
+        _raise_owner_forbidden(exc)
 
     return _invitation_response_from_record(invitation)
 
@@ -327,6 +343,7 @@ def remove_current_user_team_member(
     try:
         member = remove_team_member_from_organization(
             organization_id=context.organization_id,
+            actor_user_id=context.user_id,
             user_id=user_id
         )
     except DatabaseNotConfiguredError as exc:
@@ -334,6 +351,8 @@ def remove_current_user_team_member(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc)
         ) from exc
+    except TeamAuthorizationError as exc:
+        _raise_owner_forbidden(exc)
 
     if member is None:
         raise HTTPException(
