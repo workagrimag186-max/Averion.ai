@@ -14,7 +14,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: ReactNode;
 }>) {
-  // Get messages for the current locale
   const messages = await getMessages();
 
   return (
@@ -27,5 +26,3 @@ export default async function RootLayout({
     </html>
   );
 }
-
-// Made with Bob
