@@ -21,6 +21,9 @@ export function ChatHistorySidebar({
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     loadConversations();
@@ -49,6 +52,7 @@ export function ChatHistorySidebar({
     }
 
     try {
+      setDeleteErrorMessage(null);
       await deleteConversation(conversationId);
       setConversations((prev) =>
         prev.filter((conv) => conv.id !== conversationId)
@@ -59,7 +63,7 @@ export function ChatHistorySidebar({
         onNewChat();
       }
     } catch (error) {
-      alert(
+      setDeleteErrorMessage(
         error instanceof Error ? error.message : "Failed to delete conversation"
       );
     }
@@ -120,6 +124,12 @@ export function ChatHistorySidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
+        {deleteErrorMessage && (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3">
+            <p className="text-sm text-red-800">{deleteErrorMessage}</p>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="space-y-2">
             <div className="h-12 animate-pulse rounded-md bg-slate-100" />
@@ -202,5 +212,3 @@ export function ChatHistorySidebar({
     </aside>
   );
 }
-
-// Made with Bob
