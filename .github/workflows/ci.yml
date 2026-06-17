@@ -79,18 +79,7 @@ jobs:
           # Cache key updated for Part #129 deployment configuration
 
       - name: Install dependencies
-        run: npm install
-      
-      - name: Commit updated package-lock.json
-        if: github.event_name == 'pull_request'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -n "$(git status --porcelain package-lock.json)" ]; then
-            git add package-lock.json
-            git commit -m "chore: update package-lock.json with Node.js 22"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
+        run: npm ci
 
       - name: Typecheck
         run: npm run typecheck
