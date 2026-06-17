@@ -1,3 +1,6 @@
+import logging
+import signal
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,12 +17,33 @@ from app.ai.embeddings import preload_embedding_model
 from app.core.config import settings
 from app.core.middleware import RequestSecurityMiddleware
 
+logger = logging.getLogger(__name__)
+
+
+def handle_shutdown_signal(signum, frame):
+    """Handle shutdown signals gracefully."""
+    logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+    sys.exit(0)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting up Averion.ai API...")
+    
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+    signal.signal(signal.SIGINT, handle_shutdown_signal)
+    
     if settings.embedding_model_preload:
+        logger.info("Preloading embedding model...")
         preload_embedding_model()
+    
+    logger.info("API startup complete")
     yield
+    
+    # Shutdown
+    logger.info("Shutting down Averion.ai API...")
 
 
 def create_app() -> FastAPI:
